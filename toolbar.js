@@ -1,4 +1,4 @@
-/* toolbar.js — top bar: brand, search, theme toggle, user avatar. */
+/* toolbar.js — top bar: brand, search, layout toggle, use-case guide, theme, notifications, person switcher. */
 (function () {
   const { el } = NL;
   let built = false;
@@ -20,7 +20,9 @@
         el('div.ws-seg', { id: 'layoutSeg', role: 'group', 'aria-label': 'Layout' },
           el('button', { dataset: { l: 'grid' }, title: 'Grid', onclick: () => NL.app.setLayout('grid') }, '▦ Grid'),
           el('button', { dataset: { l: 'list' }, title: 'List', onclick: () => NL.app.setLayout('list') }, '☰ List')),
+        el('button.btn.ws-guide-btn', { id: 'guideBtn', title: 'Step-by-step use cases with several people', onclick: () => NL.demo.toggle() }, '▶ Use cases'),
         el('button.btn.theme-btn', { id: 'themeBtn', title: 'Light / dark', onclick: () => NL.app.toggleTheme() }),
+        el('span', { id: 'bellSlot' }),
         el('span.ws-me', { id: 'meSlot' }));
     }
     const search = document.getElementById('search');
@@ -30,9 +32,9 @@
       b.setAttribute('aria-pressed', String(b.dataset.l === state.layout));
     });
     document.getElementById('themeBtn').textContent = state.theme === 'dark' ? '☀' : '☾';
-    const me = store.me();
-    document.getElementById('meSlot').replaceChildren(NL.avatar(me, 30));
-    document.getElementById('meSlot').title = me.name + ' · ' + me.email;
+    document.getElementById('guideBtn').classList.toggle('on', NL.demo.isOpen());
+    document.getElementById('bellSlot').replaceChildren(NL.notifications.button());
+    document.getElementById('meSlot').replaceChildren(NL.peopleMenu.button());
   }
 
   NL.toolbar = { render };

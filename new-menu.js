@@ -6,7 +6,16 @@
     return f && (f.myRole === 'owner' || f.myRole === 'edit') ? f : null;
   }
 
+  // company viewers (QA, sales) can't create; say why instead of silently hiding the button
+  function blocked() {
+    if (store.canCreate()) return false;
+    NL.toast('Viewers can’t create recipes or folders. Ask an editor or an admin.');
+    NL.app.track({ type: 'blocked', action: 'new' });
+    return true;
+  }
+
   function open(x, y, state) {
+    if (blocked()) return;
     const f = target(state);
     const where = f ? ' in “' + f.name + '”' : '';
     NL.menu(x, y, [
@@ -16,6 +25,7 @@
   }
 
   async function newRecipe(state) {
+    if (blocked()) return;
     const f = target(state);
     const name = await NL.ask('Name your new recipe' + (f ? ' (goes in “' + f.name + '”)' : ''), 'Untitled recipe', 'Create');
     if (!name) return;
@@ -26,6 +36,7 @@
   }
 
   async function newFolder(state) {
+    if (blocked()) return;
     const f = target(state);
     const name = await NL.ask('Name your new folder' + (f ? ' (goes in “' + f.name + '”)' : ''), 'New folder', 'Create');
     if (!name) return;

@@ -3,8 +3,8 @@
    Screens call these and get plain copies back; they never mutate store data directly.
    All data is made up. */
 (function () {
-  const KEY = 'nlws.v1';
-  const ME = 'u1';
+  const KEY = 'nlws.v3'; // v3: people have job titles, activity has targets, current person is switchable
+  let ME = 'u1'; // who is "signed in"; the demo can switch person (store.switchUser)
   const ORG = 'Northwest Frozen';
   const H = 3600e3, D = 24 * H;
 
@@ -29,12 +29,12 @@
   function seed() {
     const now = Date.now();
     const people = [
-      { id: 'u1', name: 'Jordan Lee', email: 'jordan@example.com', role: 'admin', initials: 'JL', color: '#2f6fed' },
-      { id: 'u2', name: 'Ana Ruiz', email: 'ana@example.com', role: 'editor', initials: 'AR', color: '#e8590c' },
-      { id: 'u3', name: 'Marco Bianchi', email: 'marco@example.com', role: 'editor', initials: 'MB', color: '#0f766e' },
-      { id: 'u4', name: 'Priya Shah', email: 'priya@example.com', role: 'editor', initials: 'PS', color: '#7c5cff' },
-      { id: 'u5', name: 'Ken Watanabe', email: 'ken@example.com', role: 'viewer', initials: 'KW', color: '#c2255c' },
-      { id: 'u6', name: 'Lena Okafor', email: 'lena@example.com', role: 'viewer', initials: 'LO', color: '#5c940d' },
+      { id: 'u1', name: 'Jordan Lee', email: 'jordan@example.com', role: 'admin', title: 'Head of R&D', initials: 'JL', color: '#2f6fed' },
+      { id: 'u2', name: 'Ana Ruiz', email: 'ana@example.com', role: 'editor', title: 'Sous chef', initials: 'AR', color: '#e8590c' },
+      { id: 'u3', name: 'Marco Bianchi', email: 'marco@example.com', role: 'editor', title: 'Product developer', initials: 'MB', color: '#0f766e' },
+      { id: 'u4', name: 'Priya Shah', email: 'priya@example.com', role: 'editor', title: 'Food technologist', initials: 'PS', color: '#7c5cff' },
+      { id: 'u5', name: 'Ken Watanabe', email: 'ken@example.com', role: 'viewer', title: 'QA lead', initials: 'KW', color: '#c2255c' },
+      { id: 'u6', name: 'Lena Okafor', email: 'lena@example.com', role: 'viewer', title: 'Sales', initials: 'LO', color: '#5c940d' },
     ];
     const folder = (id, name, parentId, ownerId, ago, shares = []) =>
       ({ id, type: 'folder', name, parentId, ownerId, shares, orgView: false, status: 'active', updatedAt: now - ago, createdAt: now - ago - 30 * D });
@@ -60,7 +60,7 @@
       ['Falafel Grain Bowl', 'f2', 'u1', 'u4', 72, 555, 1.22, 410, 2, 5, ['bowl', 'vegan']],
       ['Korean Beef Bibimbap', 'f2', 'u1', 'u1', 200, 702, 2.48, 460, 4, 6, ['bowl', 'beef']],
       ['House Vinaigrette', 'f3', 'u1', 'u1', 75, 92, 0.11, 30, 7, 1, ['dressing'], { star: true }],
-      ['Garlic Aioli', 'f3', 'u1', 'u5', 100, 145, 0.14, 25, 2, 1, ['sauce']],
+      ['Garlic Aioli', 'f3', 'u1', 'u4', 100, 145, 0.14, 25, 2, 1, ['sauce']],
       ['Peanut Satay Sauce', 'f3', 'u1', 'u1', 300, 118, 0.19, 40, 3, 2, ['sauce', 'contains nuts']],
       ['Green Goddess Dressing', 'f3', 'u1', 'u1', 900, 88, 0.16, 30, 1, 1, ['dressing'], { archived: true }],
       ['Beef Lasagna Tray', 'f4', 'u3', 'u3', 22, 610, 2.31, 400, 8, 7, ['frozen', 'pasta'], { star: true }],
@@ -73,21 +73,21 @@
       ['Overnight Oats Base', null, 'u1', 'u1', 120, 310, 0.42, 250, 1, 2, ['breakfast']],
       ['Sriracha Mayo', null, 'u1', 'u1', 2000, 160, 0.09, 20, 1, 1, ['sauce'], { archived: true }],
       ['Thai Green Curry', null, 'u2', 'u2', 8, 560, 1.64, 420, 3, 5, ['curry'], { shareMe: 'edit' }],
-      ['Brown Butter Cookie Dough', null, 'u5', 'u5', 36, 210, 0.33, 50, 2, 2, ['dessert'], { shareMe: 'view', star: true }],
+      ['Brown Butter Cookie Dough', null, 'u4', 'u4', 36, 210, 0.33, 50, 2, 2, ['dessert'], { shareMe: 'view', star: true }],
       ['Pulled Pork Sliders', null, 'u3', 'u3', 400, 540, 1.95, 260, 4, 4, ['pork'], { shareMe: 'view', archived: true }],
     ];
     R.forEach((r, i) => {
       const [name, folderId, ownerId, updatedBy, h, kcal, cost, weight, versions, cards, tags, x = {}] = r;
       const shares = [];
-      if (x.shareMe) shares.push({ personId: ME, role: x.shareMe });
-      if (i % 4 === 1 && ownerId === ME) shares.push({ personId: 'u2', role: 'edit' });
-      if (i % 5 === 2 && ownerId === ME) shares.push({ personId: 'u6', role: 'view' });
+      if (x.shareMe) shares.push({ personId: 'u1', role: x.shareMe });
+      if (i % 4 === 1 && ownerId === 'u1') shares.push({ personId: 'u2', role: 'edit' });
+      if (i % 5 === 2 && ownerId === 'u1') shares.push({ personId: 'u6', role: 'view' });
       items.push({
         id: 'r' + (i + 1), type: 'recipe', name,
         status: x.archived ? 'archived' : 'active',
         updatedAt: now - h * H, updatedBy, createdAt: now - h * H - (10 + i) * D, createdBy: ownerId,
         versions, finalWeightG: weight, kcalPerPortion: kcal, costPerPortion: cost, cards,
-        folderId, starredBy: x.star ? [ME] : (i % 3 === 0 ? ['u2'] : []), ownerId,
+        folderId, starredBy: x.star ? ['u1'] : (i % 3 === 0 ? ['u2'] : []), ownerId,
         shares, orgView: i % 6 === 0, tags, thumbnailColor: colors[i % colors.length],
       });
     });
@@ -96,10 +96,11 @@
       activity.push({ id: uid('a'), itemId: r.id, who: r.createdBy, what: 'created', when: r.createdAt });
       for (let v = 1; v < r.versions; v++)
         activity.push({ id: uid('a'), itemId: r.id, who: v % 2 ? r.updatedBy : r.ownerId, what: 'versioned', when: r.createdAt + (r.updatedAt - r.createdAt) * (v / r.versions) });
-      r.shares.forEach((s) => activity.push({ id: uid('a'), itemId: r.id, who: r.ownerId, what: 'shared', when: r.updatedAt - 3 * H, detail: person2(people, s.personId) }));
+      r.shares.forEach((s) => activity.push({ id: uid('a'), itemId: r.id, who: r.ownerId, what: 'shared', when: r.updatedAt - 3 * H, detail: person2(people, s.personId), target: s.personId, role: s.role }));
       activity.push({ id: uid('a'), itemId: r.id, who: r.updatedBy, what: 'edited', when: r.updatedAt });
     });
-    return { people, items, activity };
+    // Jordan last checked notifications 6 h ago, so a couple of teammates' edits show as new
+    return { people, items, activity, meId: 'u1', seen: { u1: now - 6 * H } };
   }
   function person2(people, id) { const p = people.find((x) => x.id === id); return p ? p.name : ''; }
 
@@ -131,8 +132,16 @@
     if (item.type === 'folder') o.childCount = db.items.filter((c) => (c.type === 'folder' ? c.parentId : c.folderId) === item.id && c.status === 'active').length;
     return o;
   }
-  function log(itemId, what, detail) {
-    db.activity.push({ id: uid('a'), itemId, who: ME, what, when: Date.now(), detail });
+  // activity log + change event. extra = machine-readable details (target person, folder, …) used by notifications and the demo guide
+  function log(itemId, what, detail, extra = {}) {
+    db.activity.push(Object.assign({ id: uid('a'), itemId, who: ME, what, when: Date.now(), detail }, extra));
+    emit(Object.assign({ type: what, itemId }, extra));
+  }
+  const listeners = [];
+  function emit(e) { e.who = ME; e.when = Date.now(); listeners.forEach((fn) => { try { fn(e); } catch (x) { console.error(x); } }); }
+  // company "viewers" (QA, sales) can look but not create or copy recipes
+  function mustCreate() {
+    if (person(ME).role === 'viewer') throw new Error('Viewers can’t create or copy recipes. Ask an editor or an admin.');
   }
   function touch(item) { item.updatedAt = Date.now(); if (item.type === 'recipe') item.updatedBy = ME; }
   function mustEdit(item) {
@@ -186,6 +195,7 @@
     },
 
     createRecipe({ name, folderId = null }) {
+      mustCreate();
       if (folderId) mustEdit(byId(folderId));
       const now = Date.now();
       const r = {
@@ -195,15 +205,16 @@
         folderId, starredBy: [], ownerId: ME, shares: [], orgView: false, tags: [],
         thumbnailColor: ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c'][Math.floor(Math.random() * 5)],
       };
-      db.items.push(r); log(r.id, 'created'); save();
+      db.items.push(r); log(r.id, 'created', null, { kind: 'recipe', folderId }); save();
       return decorate(r);
     },
 
     createFolder({ name, parentId = null }) {
+      mustCreate();
       if (parentId) mustEdit(byId(parentId));
       const now = Date.now();
       const f = { id: uid('f'), type: 'folder', name: name || 'New folder', parentId, ownerId: ME, shares: [], orgView: false, status: 'active', updatedAt: now, createdAt: now };
-      db.items.push(f); log(f.id, 'created'); save();
+      db.items.push(f); log(f.id, 'created', null, { kind: 'folder', folderId: parentId }); save();
       return decorate(f);
     },
 
@@ -220,7 +231,7 @@
         if (i.type === 'folder' && (folderId === id || ancestors(f).some((a) => a.id === id))) throw new Error('A folder can’t go inside itself.');
       }
       if (i.type === 'folder') i.parentId = folderId; else i.folderId = folderId;
-      touch(i); log(id, 'moved', folderId ? byId(folderId).name : 'My recipes'); save();
+      touch(i); log(id, 'moved', folderId ? byId(folderId).name : 'My recipes', { folderId }); save();
       return decorate(i);
     },
 
@@ -228,13 +239,14 @@
       const i = byId(id);
       i.starredBy = (i.starredBy || []).filter((p) => p !== ME);
       if (on) i.starredBy.push(ME);
-      save(); return decorate(i);
+      save(); emit({ type: 'star', itemId: id, on: !!on }); return decorate(i);
     },
 
     archive(id) { const i = byId(id); mustEdit(i); i.status = 'archived'; touch(i); log(id, 'archived'); save(); return decorate(i); },
     restore(id) { const i = byId(id); mustEdit(i); i.status = 'active'; touch(i); log(id, 'restored'); save(); return decorate(i); },
 
     duplicate(id) {
+      mustCreate();
       const src = byId(id);
       const now = Date.now();
       const d = Object.assign(copy(src), {
@@ -246,7 +258,7 @@
       const pid = src.type === 'folder' ? src.parentId : src.folderId;
       const canWrite = pid && ['owner', 'edit'].includes(roleOf(byId(pid)));
       if (src.type === 'folder') d.parentId = canWrite ? pid : null; else d.folderId = canWrite ? pid : null;
-      db.items.push(d); log(d.id, 'created', 'copy of ' + src.name); save();
+      db.items.push(d); log(d.id, 'created', 'copy of ' + src.name, { kind: d.type, copyOf: src.id, folderId: src.type === 'folder' ? d.parentId : d.folderId }); save();
       return decorate(d);
     },
 
@@ -256,17 +268,19 @@
     },
     share(id, personId, role) {
       const i = byId(id); mustEdit(i);
+      if (role === 'edit' && person(personId).role === 'viewer') throw new Error(person(personId).name + ' is a viewer, so can only be given “Can view”.');
       const s = i.shares.find((x) => x.personId === personId);
+      const changed = !!s;
       if (s) s.role = role; else i.shares.push({ personId, role });
-      log(id, 'shared', person(personId).name + ' (' + (role === 'edit' ? 'can edit' : 'can view') + ')'); save();
+      log(id, 'shared', person(personId).name + ' (' + (role === 'edit' ? 'can edit' : 'can view') + ')', { target: personId, role, changed }); save();
     },
     unshare(id, personId) {
       const i = byId(id); mustEdit(i);
       i.shares = i.shares.filter((x) => x.personId !== personId);
-      log(id, 'unshared', person(personId).name); save();
+      log(id, 'unshared', person(personId).name, { target: personId }); save();
     },
     // "Everyone at Northwest Frozen can view" (helper; not in the original API list)
-    setOrgView(id, on) { const i = byId(id); mustEdit(i); i.orgView = !!on; log(id, 'shared', on ? 'everyone at ' + ORG : 'no longer org-wide'); save(); },
+    setOrgView(id, on) { const i = byId(id); mustEdit(i); i.orgView = !!on; log(id, 'shared', on ? 'everyone at ' + ORG : 'no longer org-wide', { org: !!on }); save(); },
 
     activity(id) {
       return db.activity.filter((a) => a.itemId === id).sort((a, b) => b.when - a.when)
@@ -309,9 +323,46 @@
       try { localStorage.setItem(V3_KEY, JSON.stringify(book)); } catch (e) { return null; }
 
       item.builderTabId = tab.id;
+      log(id, 'opened', 'in the Recipe Builder');
       save();
       return V3_URL;
     },
+
+    /* ---------- demo helpers (not in the original API list) ---------- */
+    // switch who is "signed in" — stands in for real login so one browser can play several people
+    switchUser(personId) {
+      if (!person(personId)) return;
+      ME = personId; db.meId = personId; save();
+      emit({ type: 'switch', to: personId });
+    },
+    canCreate() { return person(ME).role !== 'viewer'; },
+    // tell the demo guide (or anything else) about every change; returns an unsubscribe function
+    subscribe(fn) { listeners.push(fn); return () => listeners.splice(listeners.indexOf(fn), 1); },
+
+    // What teammates did that concerns me: shared with me / with everyone, changes to my items, things added to my folders.
+    notifications() {
+      const seen = (db.seen && db.seen[ME]) || 0;
+      const me = person(ME);
+      const out = [];
+      const VERB = { edited: 'edited', renamed: 'renamed', moved: 'moved', archived: 'archived', restored: 'restored', unshared: 'changed who can see' };
+      for (const a of db.activity) {
+        if (a.who === ME || a.what === 'opened' || a.what === 'versioned') continue;
+        const it = byId(a.itemId);
+        if (!it || !roleOf(it)) continue;
+        const who = person(a.who).name;
+        const kind = it.type === 'folder' ? 'folder' : 'recipe';
+        const parent = byId(it.type === 'folder' ? it.parentId : it.folderId);
+        let text = null;
+        if (a.what === 'shared' && a.target === ME) text = who + ' shared the ' + kind + ' “' + it.name + '” with you' + (a.role === 'edit' ? ' (can edit)' : ' (can view)');
+        else if (a.what === 'shared' && a.org === true && it.ownerId !== ME) text = who + ' made “' + it.name + '” viewable by everyone at ' + ORG;
+        else if (a.what === 'created' && parent && parent.ownerId === ME) text = who + ' added “' + it.name + '” to your folder “' + parent.name + '”';
+        else if (it.ownerId === ME && a.what === 'shared' && a.target) text = who + ' shared your ' + kind + ' “' + it.name + '” with ' + person(a.target).name;
+        else if (it.ownerId === ME && VERB[a.what]) text = who + ' ' + VERB[a.what] + ' your ' + kind + ' “' + it.name + '”';
+        if (text) out.push({ id: a.id, itemId: it.id, who: copy(person(a.who)), text, when: a.when, unread: a.when > seen });
+      }
+      return out.sort((x, y) => y.when - x.when).slice(0, 30);
+    },
+    markNotificationsSeen() { db.seen = db.seen || {}; db.seen[ME] = Date.now(); save(); },
 
     // per-browser UI preferences such as theme and grid/list (helper; would be a user setting later)
     pref(key, value) {
@@ -323,7 +374,7 @@
     },
 
     // "Reset demo data" button (helper)
-    reset() { try { localStorage.removeItem(KEY); } catch (e) {} db = seed(); save(); },
+    reset() { try { localStorage.removeItem(KEY); } catch (e) {} db = seed(); ME = db.meId; save(); emit({ type: 'reset' }); },
   };
 
   /* ---------- v3 Recipe Builder ---------- */
@@ -347,6 +398,7 @@
   }
 
   db = load();
+  ME = person(db.meId) ? db.meId : 'u1';
   save();
   window.store = store;
 })();

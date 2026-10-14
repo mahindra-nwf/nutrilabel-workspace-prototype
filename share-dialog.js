@@ -16,13 +16,21 @@
 
       const who = el('select.ws-sel', { 'aria-label': 'Person' },
         el('option', { value: '' }, free.length ? 'Add a person…' : 'Everyone already has access'),
-        free.map((p) => el('option', { value: p.id }, p.name + ' · ' + p.email)));
-      const role = el('select.ws-sel', { 'aria-label': 'Access' }, el('option', { value: 'view' }, 'Can view'), el('option', { value: 'edit' }, 'Can edit'));
+        free.map((p) => el('option', { value: p.id }, p.name + ' · ' + p.title + (p.role === 'viewer' ? ' (viewer)' : ''))));
+      const editOpt = el('option', { value: 'edit' }, 'Can edit');
+      const role = el('select.ws-sel', { 'aria-label': 'Access' }, el('option', { value: 'view' }, 'Can view'), editOpt);
       const add = el('button.btn.primary', {
         disabled: true,
-        onclick: () => { store.share(id, who.value, role.value); NL.toast(nameOf(who.value) + ' can now ' + (role.value === 'edit' ? 'edit' : 'view')); draw(); NL.app.refresh(); },
+        onclick: () => { try { store.share(id, who.value, role.value); } catch (err) { NL.toast(err.message); return; } NL.toast(nameOf(who.value) + ' can now ' + (role.value === 'edit' ? 'edit' : 'view')); draw(); NL.app.refresh(); },
       }, 'Add');
-      who.addEventListener('change', () => { add.disabled = !who.value; });
+      who.addEventListener('change', () => {
+        add.disabled = !who.value;
+        // company viewers (QA, sales) can only ever view
+        const p = free.find((x) => x.id === who.value);
+        editOpt.disabled = !!(p && p.role === 'viewer');
+        editOpt.textContent = editOpt.disabled ? 'Can edit (not for viewers)' : 'Can edit';
+        if (editOpt.disabled) role.value = 'view';
+      });
 
       const owner = it.owner;
       const rows = [
@@ -32,13 +40,13 @@
             ? el('select.ws-sel.ws-share-role', {
                 'aria-label': 'Access for ' + s.person.name,
                 onchange: (e) => { store.share(id, s.person.id, e.target.value); draw(); NL.app.refresh(); },
-              }, el('option', { value: 'view', selected: s.role === 'view' }, 'Can view'), el('option', { value: 'edit', selected: s.role === 'edit' }, 'Can edit'))
+              }, el('option', { value: 'view', selected: s.role === 'view' }, 'Can view'), el('option', { value: 'edit', selected: s.role === 'edit', disabled: s.person.role === 'viewer' }, s.person.role === 'viewer' ? 'Can edit (not for viewers)' : 'Can edit'))
             : el('span.faint.ws-share-role', {}, s.role === 'edit' ? 'Can edit' : 'Can view'),
           canEdit ? el('button.ws-more', {
             title: 'Remove ' + s.person.name, 'aria-label': 'Remove ' + s.person.name,
             onclick: () => {
               store.unshare(id, s.person.id); draw(); NL.app.refresh();
-              NL.toast(s.person.name + ' no longer has access', { label: 'Undo', run: () => { store.share(id, s.person.id, s.role); NL.app.refresh(); } });
+              NL.toast(s.person.name + ' no longer has access', { label: 'Undo', run: () => { store.share(id, s.person.id, s.role); NL.app.refresh(); NL.app.track({ type: 'undo', of: 'unshare' }); } });
             },
           }, '✕') : null)),
       ];
@@ -71,7 +79,7 @@
   }
 
   function info(p, me) {
-    return el('div.grow', {}, el('div', {}, p.name + (p.id === me.id ? ' (you)' : '')), el('div.faint', {}, p.email));
+    return el('div.grow', {}, el('div', {}, p.name + (p.id === me.id ? ' (you)' : '')), el('div.faint', {}, p.title + ' · ' + p.email));
   }
   const nameOf = (pid) => (store.listPeople().find((p) => p.id === pid) || {}).name;
 

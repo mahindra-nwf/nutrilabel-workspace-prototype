@@ -11,8 +11,8 @@
 
   function render(state) {
     const root = document.getElementById('sidebar');
-    const newBtn = el('button.ws-new', {
-      id: 'newBtn',
+    const newBtn = el('button.ws-new' + (store.canCreate() ? '' : '.muted-btn'), {
+      id: 'newBtn', title: store.canCreate() ? 'New recipe or folder' : 'Viewers can’t create recipes',
       onclick: (e) => { const r = e.currentTarget.getBoundingClientRect(); NL.newMenu.open(r.left, r.bottom + 6, state); },
     }, el('span.plus', {}, '＋'), 'New');
 

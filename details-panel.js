@@ -2,8 +2,9 @@
 (function () {
   const { el, timeAgo, money } = NL;
   const VERB = { created: 'created', edited: 'edited', shared: 'shared', unshared: 'removed access for', renamed: 'renamed', moved: 'moved',
-    versioned: 'saved a new version of', archived: 'archived', restored: 'restored' };
+    versioned: 'saved a new version of', archived: 'archived', restored: 'restored', opened: 'opened' };
 
+  let lastTracked = null;
   // what the panel describes: the one selected item, else the open folder
   function subject(state) {
     if (state.selected.size === 1) return store.getItem([...state.selected][0]);
@@ -15,8 +16,10 @@
   function render(state) {
     const root = document.getElementById('details');
     root.hidden = !state.detailsOpen;
-    if (!state.detailsOpen) return;
+    if (!state.detailsOpen) { lastTracked = null; return; }
     const it = subject(state);
+    const key = it && it.id ? it.id + '|' + store.me().id : null;
+    if (key && key !== lastTracked) { lastTracked = key; NL.app.track({ type: 'details', itemId: it.id }); }
     const close = el('button.ws-more', { title: 'Close details', onclick: () => NL.app.toggleDetails(false) }, '✕');
 
     if (!it || it.multi) {

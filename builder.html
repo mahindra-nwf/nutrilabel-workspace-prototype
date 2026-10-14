@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Recipe Builder</title>
-  <link rel="stylesheet" href="base.css?v=202610141354">
-  <link rel="stylesheet" href="workspace.css?v=202610141354">
+  <link rel="stylesheet" href="base.css?v=202610141405">
+  <link rel="stylesheet" href="workspace.css?v=202610141405">
   <script>try { var t = JSON.parse(localStorage.getItem('nlws.pref.theme')); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 </head>
 <body>
@@ -23,7 +23,7 @@
       <p class="faint">The connected Recipe Builder (v3) couldn’t be reached from here. It opens when the Workspace runs on GitHub Pages next to it.</p>
     </div>
   </div>
-  <script src="store.js?v=202610141354"></script>
+  <script src="store.js?v=202610141405"></script>
   <script>
     const r = store.getItem(new URLSearchParams(location.search).get('id'));
     document.getElementById('name').textContent = r ? r.name : 'Recipe not found';

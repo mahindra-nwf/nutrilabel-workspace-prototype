@@ -24,4 +24,10 @@ New concepts the Workspace design needs. One line each, with why it matters to c
 - **View-only folders greyed out in Move to…**: makes it obvious why you can't drop a recipe into someone else's folder.
 - **Open goes straight into the Recipe Builder, one tab per recipe**: chefs move from "find it" to "work on it" in one step, and come back to the same tab next time.
 - **Numbers on cards come from the builder (later)**: kcal and cost on the card should be the live totals, so nobody trusts a stale number.
+- **Notifications (🔔)**: a chef learns that QA was given the recipe, or that a sous chef added a dish to their folder, without asking around.
+- **Company roles: admin / editor / viewer**: QA and sales can look at everything they're given but can't change a formula by accident.
+- **Viewers can never be given “Can edit”**: protects formulas even when someone shares in a hurry.
+- **Editors can share onward**: the sous chef can bring in a colleague without waiting for the head of R&D. Confirm with chefs this is wanted.
+- **Switch person (demo only)**: lets one person show the whole team's view in a meeting; real sign-in replaces it.
+- **Guided use cases + feature checklist**: a demo script that runs inside the prototype, so testing sessions with chefs cover every feature.
 - **Comments (later)**: a QA note or tasting note attached to the recipe instead of lost in email. Out of scope for the prototype.

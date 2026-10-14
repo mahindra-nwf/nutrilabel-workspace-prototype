@@ -3,6 +3,9 @@
 (function () {
   const { el } = NL;
   const VIEWS = ['mine', 'shared', 'recent', 'starred', 'archived'];
+  // tell the use-case guide what just happened (it ticks steps and the feature checklist)
+  const track = (e) => NL.demo && NL.demo.track(e);
+  store.subscribe(track);
 
   const state = {
     view: 'mine', folderId: null, query: '',
@@ -22,15 +25,18 @@
   }
   function go(patch, opts = {}) {
     const prevKey = state.view + state.folderId + state.query;
+    const prev = { view: state.view, folderId: state.folderId, query: state.query };
     Object.assign(state, patch);
     if (state.view + state.folderId + state.query !== prevKey) state.selected.clear();
+    if (state.view !== prev.view || state.folderId !== prev.folderId) track({ type: 'view', view: state.view, folderId: state.folderId });
+    if (state.query && state.query !== prev.query) track({ type: 'search', query: state.query });
     const hash = '#/' + state.view + (state.folderId ? '/' + state.folderId : '');
     if (location.hash !== hash) {
       if (opts.replace) history.replaceState(null, '', hash); else history.pushState(null, '', hash);
     }
     refresh();
   }
-  const onNav = () => { readHash(); state.query = ''; state.selected.clear(); refresh(); };
+  const onNav = () => { readHash(); state.query = ''; state.selected.clear(); refresh(); track({ type: 'view', view: state.view, folderId: state.folderId }); };
   addEventListener('popstate', onNav);
   addEventListener('hashchange', onNav);
 
@@ -51,6 +57,7 @@
     if (!state.items.length) renderEmpty();
     else (state.layout === 'list' ? NL.itemList : NL.itemGrid).render(state, state.items);
     NL.detailsPanel.render(state);
+    NL.demo.render();
     if (opts.select) { const n = document.querySelector('[data-id="' + opts.select + '"]'); n && n.scrollIntoView({ block: 'nearest' }); }
   }
 
@@ -114,7 +121,7 @@
   }
 
   /* ---------- actions ---------- */
-  function guard(fn) { try { return fn(); } catch (err) { NL.toast(err.message); } }
+  function guard(fn) { try { return fn(); } catch (err) { NL.toast(err.message); track({ type: 'blocked', msg: err.message }); } }
 
   function open(id) {
     const it = store.getItem(id);
@@ -128,7 +135,7 @@
   }
   async function rename(id) {
     const it = store.getItem(id);
-    if (!it || !['owner', 'edit'].includes(it.myRole)) return NL.toast('You can only view this one.');
+    if (!it || !['owner', 'edit'].includes(it.myRole)) { track({ type: 'blocked', action: 'rename', itemId: id }); return NL.toast('You can only view “' + (it ? it.name : 'this') + '”, so you can’t rename it.'); }
     const name = await NL.ask('Rename ' + (it.type === 'folder' ? 'folder' : 'recipe'), it.name, 'Rename');
     if (!name || name === it.name) return;
     guard(() => store.rename(id, name)); refresh();
@@ -144,7 +151,7 @@
     if (!done.length) return;
     state.selected.clear(); refresh();
     NL.toast((done.length === 1 ? '“' + store.getItem(done[0]).name + '”' : done.length + ' items') + ' archived',
-      { label: 'Undo', run: () => { done.forEach((id) => store.restore(id)); refresh(); } });
+      { label: 'Undo', run: () => { done.forEach((id) => store.restore(id)); refresh(); track({ type: 'undo', of: 'archive' }); } });
   }
   function restore(ids) {
     const done = ids.filter((id) => guard(() => store.restore(id)));
@@ -152,41 +159,66 @@
     state.selected.clear(); refresh();
     NL.toast(done.length === 1 ? 'Restored' : done.length + ' items restored');
   }
-  function moveIds(ids, folderId) {
+  function moveIds(ids, folderId, via = 'dialog') {
     const from = {};
     ids.forEach((id) => { const it = store.getItem(id); if (it) from[id] = (it.type === 'folder' ? it.parentId : it.folderId) || null; });
     const done = ids.filter((id) => id !== folderId && from[id] !== folderId && guard(() => store.move(id, folderId)));
     if (!done.length) return;
     const where = folderId ? store.getItem(folderId).name : 'My recipes';
     state.selected.clear(); refresh();
+    track({ type: 'move', via, count: done.length, folderId });
     NL.toast((done.length === 1 ? '“' + store.getItem(done[0]).name + '”' : done.length + ' items') + ' moved to ' + where,
-      { label: 'Undo', run: () => { done.forEach((id) => guard(() => store.move(id, from[id]))); refresh(); } });
+      { label: 'Undo', run: () => { done.forEach((id) => guard(() => store.move(id, from[id]))); refresh(); track({ type: 'undo', of: 'move' }); } });
   }
   function dropOn(folderId, e) {
     let ids; try { ids = JSON.parse(e.dataTransfer.getData('text/nl-ids')); } catch (x) { return; }
-    if (ids && ids.length) moveIds(ids, folderId);
+    if (ids && ids.length) moveIds(ids, folderId, 'drag');
   }
   function moveTo(ids) { NL.moveDialog.open(ids); }
   function share(id) { NL.shareDialog.open(id); }
   function details(id) { state.selected = new Set([id]); state.anchor = id; toggleDetails(true); }
   function toggleDetails(on) { state.detailsOpen = on === undefined ? !state.detailsOpen : on; store.pref('details', state.detailsOpen); refresh(); }
-  function setLayout(l) { state.layout = l; store.pref('layout', l); refresh(); }
+  function setLayout(l) { state.layout = l; store.pref('layout', l); refresh(); track({ type: 'layout', layout: l }); }
   function setSort(key) {
     const s = state.sort;
     // same column flips the order; a new column starts A→Z / low→high, except dates which start newest first
     const dir = s.key === key ? (s.dir === 'asc' ? 'desc' : 'asc') : key === 'updatedAt' ? 'desc' : 'asc';
     state.sort = { key, dir, touched: true };
     refresh();
+    track({ type: 'sort', key, dir });
   }
-  function resetDemo() { store.reset(); go({ view: 'mine', folderId: null, query: '' }); NL.toast('Demo data reset'); }
-  function toggleTheme() { state.theme = state.theme === 'dark' ? 'light' : 'dark'; store.pref('theme', state.theme); refresh(); }
+  function resetDemo() { store.reset(); state.selected.clear(); go({ view: 'mine', folderId: null, query: '' }); NL.toast('Demo data reset'); }
+  function toggleTheme() { state.theme = state.theme === 'dark' ? 'light' : 'dark'; store.pref('theme', state.theme); refresh(); track({ type: 'theme', theme: state.theme }); }
+
+  // demo: become someone else (stands in for signing in as them)
+  function switchUser(personId) {
+    if (personId === store.me().id) return;
+    store.switchUser(personId);
+    state.selected.clear(); state.query = '';
+    go({ view: 'mine', folderId: null, query: '' }, { replace: true });
+    const me = store.me();
+    NL.toast('You’re now ' + me.name + ' (' + me.title + ')');
+  }
+  // jump to an item: open its folder (or view) and select it — used by notifications
+  function reveal(id) {
+    const it = store.getItem(id);
+    if (!it) return NL.toast('You can’t see that any more.');
+    if (it.type === 'folder' && it.status === 'active') return open(id);
+    const me = store.me().id;
+    const parent = it.folderId && store.getItem(it.folderId);
+    if (it.status === 'archived') go({ view: 'archived', folderId: null, query: '' });
+    else if (parent) go({ view: parent.ownerId === me ? 'mine' : 'shared', folderId: parent.id, query: '' });
+    else go({ view: it.ownerId === me ? 'mine' : 'shared', folderId: null, query: '' });
+    refresh({ select: id });
+  }
 
   /* ---------- keyboard ---------- */
   addEventListener('keydown', (e) => {
     const typing = e.target.closest('input, textarea, select, [contenteditable]');
-    if (e.key === '/' && !typing) { e.preventDefault(); document.getElementById('search').focus(); return; }
+    if (e.key === '/' && !typing) { e.preventDefault(); document.getElementById('search').focus(); track({ type: 'key', key: '/' }); return; }
     if (typing || document.querySelector('.nl-prompt-ov')) return;
     const sel = state.items.filter((i) => state.selected.has(i.id));
+    if (['Enter', 'F2', 'Delete', 'Backspace'].includes(e.key) && sel.length) track({ type: 'key', key: e.key });
     if (e.key === 'Escape') { NL.closeMenu(); if (state.selected.size) { state.selected.clear(); refresh(); } }
     else if (e.key === 'Enter' && sel.length === 1) { e.preventDefault(); open(sel[0].id); }
     else if (e.key === 'F2' && sel.length === 1) { e.preventDefault(); rename(sel[0].id); }
@@ -201,7 +233,7 @@
     if (e.target === e.currentTarget || e.target.classList.contains('ws-grid') || e.target.classList.contains('ws-folders') || e.target.classList.contains('ws-sec')) { state.selected.clear(); refresh(); }
   });
 
-  NL.app = { state, go, refresh, select, selectAll, toggleSelect, moveTo, share, details, toggleDetails, setLayout, setSort, open, rename, duplicate, star, archive, restore, moveIds, dropOn, resetDemo, toggleTheme };
+  NL.app = { state, track, switchUser, reveal, go, refresh, select, selectAll, toggleSelect, moveTo, share, details, toggleDetails, setLayout, setSort, open, rename, duplicate, star, archive, restore, moveIds, dropOn, resetDemo, toggleTheme };
   readHash();
   refresh();
 })();

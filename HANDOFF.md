@@ -1,6 +1,6 @@
 # Handoff: NutriLabel Workspace prototype
 
-Status: **steps 1–2 done**. Everything in the brief is clickable: grid + list views, details panel, share dialog, Move to…, bulk Move/Archive, drag to move, undo, keyboard, light/dark.
+Status: **steps 1–3 done**. Everything in the brief is clickable, plus a multi-person demo: switch person, 🔔 notifications, company viewer rules, and a “▶ Use cases” guide with 4 step-by-step use cases and a 30-item feature checklist that ticks itself.
 
 ## How it runs
 Plain HTML/CSS/JS, no build. Opens from `index.html` (works from disk or GitHub Pages).
@@ -25,6 +25,10 @@ Files load as classic `<script>`s, not ES modules, so `file://` works too. Each 
 | `item-list.js` | Table view with sortable columns (folders stay on top). Columns drop out on narrow widths. |
 | `details-panel.js` | ⓘ panel: numbers, owner, who has access, recent activity, location. |
 | `share-dialog.js` | Add people (Can view / Can edit), change or remove access (with undo), the org-wide switch. |
+| `people-menu.js` | Top-right “Viewing as” switcher: become any of the 6 people (stands in for login). |
+| `notifications.js` | 🔔 with unread count: shares with you, company-wide shares, changes to your items, things added to your folders. |
+| `scenarios.js` | The 4 use cases (who does each step, how a step is recognised as done) and the feature checklist. Uses seeded ids (r2, r11, f1, f3, f4, f6). |
+| `demo-panel.js` | “▶ Use cases” guide docked on the right: pick a use case, “Switch to …” buttons, steps tick themselves; checklist tab. |
 | `move-dialog.js` | Move to… folder tree, also makes a new folder in place. Used for one item or a selection. |
 
 ## store.js functions, and who calls them
@@ -53,6 +57,10 @@ Helpers added beyond the brief's list (flag these when rebuilding):
 - `store.pref(key, value)`: per-browser UI prefs (theme, grid/list). It would become a user setting.
 - `store.reset()`: Reset demo data.
 - `store.openInBuilder(id)`: connects to the v3 Recipe Builder (see below).
+- `store.switchUser(personId)`: who is "signed in" (demo only; real login replaces it).
+- `store.canCreate()`: false for company viewers.
+- `store.notifications()` / `store.markNotificationsSeen()`: the 🔔 list, computed from the activity log.
+- `store.subscribe(fn)`: every change is reported as an event (`{ type, itemId, who, target, role, kind, folderId, copyOf, org, … }`). The use-case guide listens to these. A real backend would push similar events (websocket) so other people's screens update.
 
 Objects from `listItems`/`getItem` carry extra computed fields: `myRole` (`owner|edit|view`), `starred`, `owner`, `updatedByPerson`, `childCount` (folders).
 
@@ -68,8 +76,16 @@ Opening a recipe goes to the v3 builder at `https://mahindra-nwf.github.io/nutri
 - When v3 isn't reachable (opened from disk, local server without v3), Open falls back to `builder.html`.
 - Local test of the connection: serve a folder that contains both repos side by side (same names as on Pages).
 
+## Multi-person demo
+- **Switch person** (top right): one browser plays all six people. Each person sees their own My recipes, Shared with me, stars and notifications.
+- **Company roles** (`person.role`): *admin* and *editor* can create, copy and share. *viewer* (Ken in QA, Lena in Sales) can only look: ＋ New, Duplicate and edit access are refused with a message, and the share dialog won't give them “Can edit”. Admin has no extra powers yet.
+- **Editors can re-share** what they can edit (Ana shares Jordan's folder with Marco). Worth confirming with chefs.
+- **Use cases** (`scenarios.js`): 1) QA review, Jordan + Ken; 2) new product line, Jordan + Ana + Marco; 3) house standard for everyone, Jordan + Lena + Priya; 4) clean-up day with undo, Marco + Jordan. Doing all four ticks all 30 checklist features (checked end-to-end in the browser).
+- Guide progress and the checklist are per-browser preferences (`store.pref('demo')`), not recipe data. "Reset demo data" doesn't clear them; the checklist has its own "Clear".
+
 ## Faked or hard-coded
-- Signed-in user is always **u1 "Jordan Lee"** (`ME` in store.js). No login.
+- Signed-in user starts as **u1 "Jordan Lee"** and can be switched (`ME` in store.js). No login.
+- Notifications are derived from the activity log on this browser only; nobody is really notified.
 - All people, recipes, numbers and emails are made up (`@example.com`).
 - Access rules live in `roleOf()` in store.js: owner, direct share, share inherited from a parent folder, or org-wide view. The real backend must enforce these. The prototype only hides and disables things.
 - Folders have a `status` (to archive them) and an `orgView` flag; neither is in the brief's data shape.
