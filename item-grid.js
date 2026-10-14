@@ -93,5 +93,5 @@
         el('div.ws-meta', {}, 'edited ' + timeAgo(r.updatedAt) + ' by ' + who))), state, r);
   }
 
-  NL.itemGrid = { render, wire, check, star, more, sharedBadge };
+  NL.itemGrid = { render, wire, check, star, more, sharedBadge, FOLDER_SVG };
 })();

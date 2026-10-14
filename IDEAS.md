@@ -17,4 +17,9 @@ New concepts the Workspace design needs. One line each, with why it matters to c
 - **Drag a recipe onto a folder (or a breadcrumb)**: tidying feels like moving paper between trays.
 - **Duplicate**: most new recipes start as "the old one, but…"; the copy is owned by you and starts unshared.
 - **Activity log per item**: answers "who changed this and when" before a label goes to print.
+- **List view with sortable columns**: R&D comparing costs or calories across a folder wants numbers lined up, not cards.
+- **Details panel (ⓘ)**: check a recipe's numbers, owner and recent changes without leaving the list.
+- **Undo on move and remove-access**: one wrong drag or click shouldn't mean hunting for where a recipe went.
+- **Move to… with "New folder here"**: tidying a messy list usually needs a folder that doesn't exist yet.
+- **View-only folders greyed out in Move to…**: makes it obvious why you can't drop a recipe into someone else's folder.
 - **Comments (later)**: a QA note or tasting note attached to the recipe instead of lost in email. Out of scope for the prototype.

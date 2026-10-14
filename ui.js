@@ -62,6 +62,21 @@ window.NL = window.NL || {};
     });
   }
 
+  // Modal dialog shell. Returns { close, box }. onClose runs once however it closes (✕, Esc, backdrop, close()).
+  function modal(title, body, foot, onClose) {
+    let done = false;
+    const close = () => { if (done) return; done = true; ov.remove(); document.removeEventListener('keydown', onKey, true); onClose && onClose(); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    const box = el('div.ws-dialog', { role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+      el('div.ws-dialog-head', {}, el('h2', {}, title), el('button.ws-more', { title: 'Close', onclick: close }, '✕')),
+      el('div.ws-dialog-body', {}, body),
+      foot ? el('div.ws-dialog-foot', {}, foot) : null);
+    const ov = el('div.nl-prompt-ov', { onmousedown: (e) => { if (e.target === ov) close(); } }, box);
+    document.body.append(ov);
+    document.addEventListener('keydown', onKey, true);
+    return { close, box };
+  }
+
   // Floating menu: items = [{ label, icon, run, danger }] | 'sep'
   function menu(x, y, items) {
     closeMenu();
@@ -78,5 +93,8 @@ window.NL = window.NL || {};
   }
   function closeMenu() { document.querySelectorAll('.ws-menu').forEach((m) => { m._off && m._off(); m.remove(); }); }
 
-  Object.assign(NL, { el, timeAgo, money, firstName, avatar, toast, ask, menu, closeMenu });
+  // replaceChildren() that skips null/false (replaceChildren would print "null")
+  const fill = (node, ...kids) => node.replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
+
+  Object.assign(NL, { fill, el, timeAgo, money, firstName, avatar, toast, ask, modal, menu, closeMenu });
 })();

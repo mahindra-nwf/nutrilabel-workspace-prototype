@@ -8,6 +8,8 @@
     view: 'mine', folderId: null, query: '',
     layout: store.pref('layout') || 'grid',
     theme: store.pref('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+    detailsOpen: !!store.pref('details'),
+    sort: { key: 'name', dir: 'asc', touched: false },
     selected: new Set(), anchor: null,
     items: [],
   };
@@ -45,8 +47,10 @@
     NL.sidebar.render(state);
     NL.breadcrumbs.render(state);
     renderSelectionBar();
-    if (state.items.length) NL.itemGrid.render(state, state.items);
-    else renderEmpty();
+    renderHeadTools();
+    if (!state.items.length) renderEmpty();
+    else (state.layout === 'list' ? NL.itemList : NL.itemGrid).render(state, state.items);
+    NL.detailsPanel.render(state);
     if (opts.select) { const n = document.querySelector('[data-id="' + opts.select + '"]'); n && n.scrollIntoView({ block: 'nearest' }); }
   }
 
@@ -71,13 +75,23 @@
     const sel = state.items.filter((i) => state.selected.has(i.id));
     const editable = sel.filter((i) => i.myRole === 'owner' || i.myRole === 'edit');
     const archivedView = state.view === 'archived' && !state.query;
-    bar.replaceChildren(
+    NL.fill(bar,
       el('button.btn.ghost.sm', { title: 'Clear selection (Esc)', onclick: () => { state.selected.clear(); refresh(); } }, '✕'),
       el('b', {}, n + ' selected'),
       el('span.spacer'),
+      !archivedView ? el('button.btn.sm', { disabled: !editable.length, onclick: () => moveTo(editable.map((i) => i.id)) }, '⇢ Move') : null,
+      editable.length === 1 && n === 1 ? el('button.btn.sm', { onclick: () => share(editable[0].id) }, '⇄ Share') : null,
       archivedView
         ? el('button.btn.sm', { disabled: !editable.length, onclick: () => restore(editable.map((i) => i.id)) }, '↺ Restore')
         : el('button.btn.sm', { disabled: !editable.length, onclick: () => archive(editable.map((i) => i.id)) }, '⌫ Archive'));
+  }
+
+  function renderHeadTools() {
+    document.getElementById('headTools').replaceChildren(
+      el('button.btn.ghost.ws-icon-btn' + (state.detailsOpen ? '.on' : ''), {
+        title: (state.detailsOpen ? 'Hide' : 'Show') + ' details', 'aria-pressed': String(state.detailsOpen),
+        onclick: () => toggleDetails(),
+      }, 'ⓘ'));
   }
 
   /* ---------- selection ---------- */
@@ -93,6 +107,7 @@
     } else { state.selected = new Set([id]); state.anchor = id; }
     refresh();
   }
+  function selectAll(on) { state.selected = on ? new Set(state.items.map((i) => i.id)) : new Set(); refresh(); }
   function toggleSelect(id) {
     state.selected.has(id) ? state.selected.delete(id) : state.selected.add(id);
     state.anchor = id; refresh();
@@ -134,15 +149,30 @@
     NL.toast(done.length === 1 ? 'Restored' : done.length + ' items restored');
   }
   function moveIds(ids, folderId) {
-    const done = ids.filter((id) => id !== folderId && guard(() => store.move(id, folderId)));
+    const from = {};
+    ids.forEach((id) => { const it = store.getItem(id); if (it) from[id] = (it.type === 'folder' ? it.parentId : it.folderId) || null; });
+    const done = ids.filter((id) => id !== folderId && from[id] !== folderId && guard(() => store.move(id, folderId)));
     if (!done.length) return;
     const where = folderId ? store.getItem(folderId).name : 'My recipes';
     state.selected.clear(); refresh();
-    NL.toast((done.length === 1 ? '“' + store.getItem(done[0]).name + '”' : done.length + ' items') + ' moved to ' + where);
+    NL.toast((done.length === 1 ? '“' + store.getItem(done[0]).name + '”' : done.length + ' items') + ' moved to ' + where,
+      { label: 'Undo', run: () => { done.forEach((id) => guard(() => store.move(id, from[id]))); refresh(); } });
   }
   function dropOn(folderId, e) {
     let ids; try { ids = JSON.parse(e.dataTransfer.getData('text/nl-ids')); } catch (x) { return; }
     if (ids && ids.length) moveIds(ids, folderId);
+  }
+  function moveTo(ids) { NL.moveDialog.open(ids); }
+  function share(id) { NL.shareDialog.open(id); }
+  function details(id) { state.selected = new Set([id]); state.anchor = id; toggleDetails(true); }
+  function toggleDetails(on) { state.detailsOpen = on === undefined ? !state.detailsOpen : on; store.pref('details', state.detailsOpen); refresh(); }
+  function setLayout(l) { state.layout = l; store.pref('layout', l); refresh(); }
+  function setSort(key) {
+    const s = state.sort;
+    // same column flips the order; a new column starts A→Z / low→high, except dates which start newest first
+    const dir = s.key === key ? (s.dir === 'asc' ? 'desc' : 'asc') : key === 'updatedAt' ? 'desc' : 'asc';
+    state.sort = { key, dir, touched: true };
+    refresh();
   }
   function resetDemo() { store.reset(); go({ view: 'mine', folderId: null, query: '' }); NL.toast('Demo data reset'); }
   function toggleTheme() { state.theme = state.theme === 'dark' ? 'light' : 'dark'; store.pref('theme', state.theme); refresh(); }
@@ -164,10 +194,10 @@
 
   // click on empty space clears the selection
   document.getElementById('items').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget || e.target.classList.contains('ws-grid') || e.target.classList.contains('ws-folders')) { state.selected.clear(); refresh(); }
+    if (e.target === e.currentTarget || e.target.classList.contains('ws-grid') || e.target.classList.contains('ws-folders') || e.target.classList.contains('ws-sec')) { state.selected.clear(); refresh(); }
   });
 
-  NL.app = { state, go, refresh, select, toggleSelect, open, rename, duplicate, star, archive, restore, moveIds, dropOn, resetDemo, toggleTheme };
+  NL.app = { state, go, refresh, select, selectAll, toggleSelect, moveTo, share, details, toggleDetails, setLayout, setSort, open, rename, duplicate, star, archive, restore, moveIds, dropOn, resetDemo, toggleTheme };
   readHash();
   refresh();
 })();
