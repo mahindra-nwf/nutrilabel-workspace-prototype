@@ -120,7 +120,7 @@
     { group: 'Share', id: 'share-change', label: 'Change someone’s access', test: (e) => e.type === 'shared' && e.changed },
     { group: 'Share', id: 'unshare', label: 'Remove someone’s access', test: (e) => e.type === 'unshared' },
     { group: 'Share', id: 'org', label: 'Everyone at Northwest Frozen can view', test: (e) => e.type === 'shared' && e.org === true },
-    { group: 'Share', id: 'blocked', label: 'See a viewer being stopped', test: (e) => e.type === 'blocked' },
+    { group: 'Share', id: 'blocked', label: 'Viewers can’t make changes (try ＋ New as Ken or Lena)', test: (e) => e.type === 'blocked' },
     { group: 'Work', id: 'open', label: 'Open in the Recipe Builder', test: (e) => e.type === 'opened' },
     { group: 'Work', id: 'keys', label: 'Keyboard: / Enter F2 Delete', test: (e) => e.type === 'key' },
     { group: 'Work', id: 'theme', label: 'Light / dark theme', test: (e) => e.type === 'theme' },
