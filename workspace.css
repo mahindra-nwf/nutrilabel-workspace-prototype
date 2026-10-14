@@ -1,0 +1,131 @@
+/* workspace.css — Workspace screens. Colors come only from base.css tokens.
+   Exceptions (same as base.css .btn.primary / .toast): white text on avatars, which sit on each person's own color. */
+
+/* ---------- top bar ---------- */
+.topbar .brand small { font-weight: 600; }
+.ws-search { flex: 0 1 520px !important; min-width: 200px; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px;
+  background: var(--subtle); border: 1px solid var(--line); border-radius: 9px; margin-left: 24px; }
+.ws-search:focus-within { background: var(--input); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ws-search .ic { color: var(--faint); font-size: 16px; }
+.ws-search-input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font-size: 14px; }
+.ws-me { display: flex; cursor: default; }
+.avatar { display: inline-grid; place-items: center; border-radius: 50%; color: #fff; font-weight: 700; flex: none; letter-spacing: .2px; }
+
+/* ---------- shell ---------- */
+.ws-shell { display: flex; height: calc(100vh - 52px); }
+.ws-side { width: 232px; flex: none; padding: 14px 10px; display: flex; flex-direction: column; gap: 14px; border-right: 1px solid var(--line); background: var(--panel); }
+.ws-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ws-head { min-height: 56px; display: flex; align-items: center; gap: 12px; padding: 8px 24px; border-bottom: 1px solid var(--line2); }
+.ws-items { flex: 1; overflow: auto; padding: 8px 24px 40px; }
+
+/* ---------- sidebar ---------- */
+.ws-new { display: inline-flex; align-items: center; gap: 10px; align-self: flex-start; padding: 12px 22px 12px 16px; font-size: 15px; font-weight: 650;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+.ws-new:hover { background: var(--accent-soft); border-color: var(--accent); }
+.ws-new .plus { font-size: 20px; line-height: 1; color: var(--accent); }
+.ws-nav { display: flex; flex-direction: column; gap: 2px; }
+.ws-nav button { display: flex; align-items: center; gap: 12px; padding: 9px 14px; border: 0; border-radius: 20px; background: none; color: var(--text); font-size: 14px; text-align: left; }
+.ws-nav button:hover { background: var(--hover); }
+.ws-nav button.on { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+.ws-nav button.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.ws-nav .ic { width: 18px; text-align: center; color: inherit; opacity: .8; }
+.ws-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; font-size: 11px; padding: 0 4px; }
+
+/* ---------- breadcrumbs + selection bar ---------- */
+.ws-crumbs { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 1; overflow: hidden; }
+.crumb { border: 0; background: none; padding: 5px 9px; border-radius: 8px; font-size: 18px; color: var(--muted); white-space: nowrap; }
+.crumb:hover:not(.last) { background: var(--hover); color: var(--text); }
+.crumb.last { color: var(--text); font-weight: 650; cursor: default; overflow: hidden; text-overflow: ellipsis; }
+.crumb.drop { outline: 2px dashed var(--accent); }
+.ws-crumbs .sep { color: var(--faint); font-size: 16px; }
+.ws-selbar { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 4px; background: var(--accent-soft); border-radius: 10px; flex: none; }
+.ws-selbar b { color: var(--accent); margin-right: 8px; }
+.ws-selbar .spacer { flex: 1; }
+.btn:disabled { opacity: .45; cursor: default; }
+
+/* ---------- sections ---------- */
+.ws-sec { font-size: 13px; font-weight: 650; color: var(--muted); margin: 18px 0 10px; }
+
+/* folders */
+.ws-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.ws-folder { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; user-select: none; position: relative; }
+.ws-folder:hover { background: var(--hover); }
+.ws-folder-ic { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-size: 14px; }
+.ws-folder-txt { flex: 1; min-width: 0; }
+.ws-folder .faint { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* recipe cards */
+.ws-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.ws-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; cursor: default; user-select: none; display: flex; flex-direction: column; position: relative; }
+.ws-card:hover { box-shadow: var(--shadow); }
+.ws-card.archived .ws-thumb { filter: grayscale(.8); opacity: .7; }
+.ws-thumb { height: 64px; position: relative; display: flex; align-items: flex-start; justify-content: space-between; padding: 8px; }
+.ws-thumb-tags { position: absolute; left: 10px; bottom: 8px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px; background: var(--panel); color: var(--muted); }
+.ws-thumb-tags:empty { display: none; }
+.ws-card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ws-card-head { display: flex; align-items: center; gap: 4px; }
+.ws-name { font-weight: 650; font-size: 14px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-stats { display: flex; gap: 14px; color: var(--muted); font-size: 12px; }
+.ws-stats b { color: var(--text); font-weight: 650; }
+.ws-meta { color: var(--faint); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-badge { color: var(--faint); font-size: 13px; flex: none; }
+
+/* small controls on cards */
+.ws-star { border: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--panel); color: var(--faint); font-size: 15px; line-height: 1; box-shadow: var(--shadow); }
+.ws-star.on { color: var(--final); }
+.ws-star:hover { color: var(--final); }
+.ws-more { border: 0; background: none; width: 28px; height: 28px; border-radius: 50%; color: var(--muted); font-size: 18px; line-height: 1; flex: none; }
+.ws-more:hover { background: var(--hover); color: var(--text); }
+.ws-check { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; flex: none; }
+.ws-thumb .ws-check { opacity: 0; transition: opacity .1s; }
+.ws-folder .ws-check { position: absolute; left: -7px; top: -7px; opacity: 0; transition: opacity .1s; }
+.ws-card:hover .ws-check, .ws-folder:hover .ws-check, .ws-check:checked, body.selecting .ws-check { opacity: 1; }
+
+/* selected / drag states */
+.ws-card.sel, .ws-folder.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow); }
+.ws-folder.sel { background: var(--accent-soft); }
+.dragging { opacity: .45; }
+.ws-folder.drop { border-color: var(--accent); background: var(--accent-soft); outline: 2px dashed var(--accent); outline-offset: 2px; }
+
+/* ---------- empty state ---------- */
+.ws-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 80px 20px; color: var(--muted); text-align: center; }
+.ws-empty-ic { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; font-size: 30px; background: var(--accent-soft); color: var(--accent); margin-bottom: 8px; }
+.ws-empty p { font-size: 15px; margin: 0 0 10px; }
+.ws-empty .btn { font-size: 14px; padding: 9px 16px; }
+
+/* ---------- menus + toast ---------- */
+.ws-menu { position: fixed; z-index: 1001; min-width: 200px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-lg); padding: 5px; display: flex; flex-direction: column; }
+.ws-menu button { display: flex; align-items: center; gap: 10px; border: 0; background: none; text-align: left; padding: 8px 10px; border-radius: 6px; color: var(--text); font-size: 13.5px; }
+.ws-menu button:hover:not(:disabled) { background: var(--accent-soft); }
+.ws-menu button:disabled { color: var(--faint); cursor: default; }
+.ws-menu button.danger { color: var(--danger); }
+.ws-menu button.danger:hover { background: var(--danger-soft); }
+.ws-menu .ic { width: 18px; text-align: center; color: var(--muted); }
+.ws-menu .kbd { margin-left: auto; }
+.ws-menu-sep { height: 1px; background: var(--line2); margin: 4px 2px; }
+.ws-toast { position: fixed; left: 50%; bottom: 24px; margin-left: -200px; min-width: 400px; justify-content: space-between; display: flex; align-items: center; gap: 14px; background: var(--toast-bg); color: var(--bg); padding: 11px 16px; border-radius: 8px; box-shadow: var(--shadow-lg);
+  opacity: 0; transform: translateY(10px); transition: .2s; pointer-events: none; z-index: 2000; font-size: 14px; max-width: 520px; }
+:root[data-theme="dark"] .ws-toast { color: var(--text); }
+.ws-toast.show { opacity: 1; transform: none; pointer-events: auto; }
+.ws-toast button { border: 0; background: none; color: var(--accent); font-weight: 700; padding: 2px 4px; }
+:root:not([data-theme="dark"]) .ws-toast button { color: var(--accent-soft); }
+
+/* ---------- builder placeholder ---------- */
+a.btn { text-decoration: none; }
+.ws-builder { min-height: calc(100vh - 52px); display: grid; place-items: center; padding: 24px; }
+.ws-builder-box { width: 460px; max-width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; text-align: center; padding-bottom: 20px; }
+.ws-builder-box .ws-thumb { height: 72px; background: var(--accent); }
+.ws-builder-box h1 { font-size: 22px; margin: 22px 0 6px; }
+.ws-builder-box p { margin: 4px 20px; }
+
+/* ---------- tablet ---------- */
+@media (max-width: 900px) {
+  .ws-side { width: 64px; padding: 12px 8px; }
+  .ws-new { padding: 12px; justify-content: center; font-size: 0; align-self: center; }
+  .ws-new .plus { font-size: 22px; }
+  .ws-nav button { font-size: 0; justify-content: center; padding: 10px; }
+  .ws-nav .ic { font-size: 16px; }
+  .ws-side-foot { display: none; }
+  .ws-search { margin-left: 8px; }
+  .ws-head, .ws-items { padding-left: 16px; padding-right: 16px; }
+}

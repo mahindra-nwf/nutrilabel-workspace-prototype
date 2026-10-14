@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recipe Builder</title>
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="workspace.css">
+  <script>try { var t = JSON.parse(localStorage.getItem('nlws.pref.theme')); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">NutriLabel <small>Recipe Builder</small></a>
+    <span class="title" id="name"></span>
+    <span class="spacer"></span>
+    <a class="btn" href="index.html" onclick="if (history.length > 1 && document.referrer) { history.back(); return false; }">← Back to Workspace</a>
+  </header>
+  <div class="ws-builder">
+    <div class="ws-builder-box">
+      <div class="ws-thumb" id="strip"></div>
+      <h1>Recipe Builder opens here</h1>
+      <p class="muted" id="sub"></p>
+      <p class="faint">This prototype stops at the Workspace. The real builder lives in the NutriLabel app.</p>
+    </div>
+  </div>
+  <script src="store.js"></script>
+  <script>
+    const r = store.getItem(new URLSearchParams(location.search).get('id'));
+    document.getElementById('name').textContent = r ? r.name : 'Recipe not found';
+    document.title = (r ? r.name + ' · ' : '') + 'Recipe Builder';
+    if (r) {
+      document.getElementById('strip').style.background = r.thumbnailColor;
+      document.getElementById('sub').textContent = 'Opening “' + r.name + '” · ' + r.versions + (r.versions === 1 ? ' version · ' : ' versions · ') + r.cards + (r.cards === 1 ? ' card' : ' cards');
+    }
+  </script>
+</body>
+</html>

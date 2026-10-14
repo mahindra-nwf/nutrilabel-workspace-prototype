@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NutriLabel Workspace</title>
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="workspace.css">
+  <script>try { var t = JSON.parse(localStorage.getItem('nlws.pref.theme')); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+</head>
+<body data-layout>
+  <header class="topbar" id="topbar"></header>
+  <div class="ws-shell">
+    <aside class="ws-side" id="sidebar"></aside>
+    <main class="ws-main">
+      <div class="ws-head">
+        <div class="ws-crumbs" id="crumbs"></div>
+        <div class="ws-selbar" id="selbar" hidden></div>
+      </div>
+      <div class="ws-items" id="items"></div>
+    </main>
+  </div>
+
+  <!-- classic scripts (not modules) so the page also works when opened straight from disk -->
+  <script src="store.js"></script>
+  <script src="ui.js"></script>
+  <script src="toolbar.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="breadcrumbs.js"></script>
+  <script src="new-menu.js"></script>
+  <script src="item-menu.js"></script>
+  <script src="item-grid.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
