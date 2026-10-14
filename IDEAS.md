@@ -22,4 +22,6 @@ New concepts the Workspace design needs. One line each, with why it matters to c
 - **Undo on move and remove-access**: one wrong drag or click shouldn't mean hunting for where a recipe went.
 - **Move to… with "New folder here"**: tidying a messy list usually needs a folder that doesn't exist yet.
 - **View-only folders greyed out in Move to…**: makes it obvious why you can't drop a recipe into someone else's folder.
+- **Open goes straight into the Recipe Builder, one tab per recipe**: chefs move from "find it" to "work on it" in one step, and come back to the same tab next time.
+- **Numbers on cards come from the builder (later)**: kcal and cost on the card should be the live totals, so nobody trusts a stale number.
 - **Comments (later)**: a QA note or tasting note attached to the recipe instead of lost in email. Out of scope for the prototype.

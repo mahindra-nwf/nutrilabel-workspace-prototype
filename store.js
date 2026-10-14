@@ -240,6 +240,7 @@
       const d = Object.assign(copy(src), {
         id: uid(src.type === 'folder' ? 'f' : 'r'), name: 'Copy of ' + src.name, ownerId: ME, shares: [], orgView: false,
         starredBy: [], createdAt: now, updatedAt: now, createdBy: ME, updatedBy: ME, versions: 1, status: 'active',
+        builderTabId: null, // the copy gets its own Recipe Builder tab the first time it's opened
       });
       // keep it next to the original if I can write there, otherwise put it in My recipes
       const pid = src.type === 'folder' ? src.parentId : src.folderId;
@@ -272,6 +273,46 @@
         .map((a) => ({ who: copy(person(a.who)), what: a.what, when: a.when, detail: a.detail }));
     },
 
+    /* Recipe Builder link (helper; not in the original API list).
+       The v3 builder (mahindra-nwf/nutrilabel-recipe-layout-v3) is served from the same GitHub Pages origin,
+       so both sites share localStorage. v3 keeps its recipes as tabs in 'nlv3_cards_book' = { active, tabs: [{ id, state, title? }] }
+       and always opens the active tab. Opening a recipe here = find or create its tab, make it active, go to v3.
+       v3 itself is not changed. If v3 isn't reachable (opened from disk, another host), returns null → placeholder page. */
+    async openInBuilder(id) {
+      const item = byId(id);
+      if (!item || item.type !== 'recipe') return null;
+      try {
+        const ok = await fetch(V3_URL + 'index.html', { method: 'HEAD', cache: 'no-store' });
+        if (!ok.ok) return null;
+      } catch (e) { return null; }
+
+      let book = null;
+      try { book = JSON.parse(localStorage.getItem(V3_KEY)); } catch (e) {}
+      if (!book || !Array.isArray(book.tabs)) book = { active: null, tabs: [] };
+      const tabName = (t) => t.title || (t.state && t.state.asm && t.state.asm[t.state.root] && t.state.asm[t.state.root].name) || (t.state && t.state.draftName) || '';
+
+      let tab = book.tabs.find((t) => t.id === item.builderTabId)
+        // a v3 tab that already has this recipe's name (e.g. the "Spicy Miso Ramen" sample) is reused
+        || book.tabs.find((t) => tabName(t).trim().toLowerCase() === item.name.trim().toLowerCase());
+      if (!tab) {
+        // recipes made here start empty; the made-up seeded ones start from v3's sample so there's something to look at
+        const state = item.kcalPerPortion ? await v3Sample() : null;
+        tab = { id: 't' + Math.random().toString(36).slice(2, 9), state: state || { root: null, draftName: item.name, asm: {} } };
+        book.tabs.push(tab);
+      }
+      if (!tab.state || !tab.state.asm) tab.state = { root: null, draftName: item.name, asm: {} };
+      // the Workspace name wins: keep the v3 tab named like the recipe
+      if (tab.state.root && tab.state.asm[tab.state.root]) tab.state.asm[tab.state.root].name = item.name;
+      else tab.state.draftName = item.name;
+      delete tab.title;
+      book.active = tab.id;
+      try { localStorage.setItem(V3_KEY, JSON.stringify(book)); } catch (e) { return null; }
+
+      item.builderTabId = tab.id;
+      save();
+      return V3_URL;
+    },
+
     // per-browser UI preferences such as theme and grid/list (helper; would be a user setting later)
     pref(key, value) {
       const k = 'nlws.pref.' + key;
@@ -284,6 +325,26 @@
     // "Reset demo data" button (helper)
     reset() { try { localStorage.removeItem(KEY); } catch (e) {} db = seed(); save(); },
   };
+
+  /* ---------- v3 Recipe Builder ---------- */
+  const V3_URL = '../nutrilabel-recipe-layout-v3/';
+  const V3_KEY = 'nlv3_cards_book';
+  // v3's own sample assembly, prepared the way v3's fromSample() does (colors, empty steps, auto-arrange on open)
+  async function v3Sample() {
+    try {
+      const src = await (await fetch(V3_URL + 'shared/data.js', { cache: 'no-store' })).text();
+      const box = {};
+      new Function('window', 'NL', src)({ NL: box }, box); // runs v3's data file against a private object, not our window.NL
+      const s = JSON.parse(JSON.stringify(box.SAMPLE));
+      const COLORS = ['#3b82f6', '#ef4444', '#8b5cf6', '#f59e0b', '#14b8a6', '#ec4899', '#f97316', '#6366f1'];
+      Object.entries(s.asm).forEach(([aid, a], i) => {
+        a.color = aid === s.root ? '#0f766e' : COLORS[(i - 1) % COLORS.length];
+        a.steps = a.steps || []; a.notes = a.notes || ''; a.x = 0; a.y = 0;
+      });
+      s._arrange = true;
+      return s;
+    } catch (e) { return null; }
+  }
 
   db = load();
   save();

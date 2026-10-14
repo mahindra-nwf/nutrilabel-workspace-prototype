@@ -10,7 +10,7 @@ Files load as classic `<script>`s, not ES modules, so `file://` works too. Each 
 | File | What it is |
 |---|---|
 | `index.html` | Shell: top bar, sidebar, main area. Loads scripts in order. |
-| `builder.html` | "Recipe Builder opens here" placeholder (`?id=`). |
+| `builder.html` | Fallback placeholder (`?id=`), used only when the v3 Recipe Builder can't be reached. |
 | `base.css` | Design tokens + shared components, copied from NLv4 `src/styles/base.css`. Don't edit; copy again when it changes. |
 | `workspace.css` | All Workspace styles. Colors only via base.css tokens. |
 | `store.js` | **The only data layer.** All localStorage access lives here. Seed data. |
@@ -45,14 +45,28 @@ Files load as classic `<script>`s, not ES modules, so `file://` works too. Each 
 | `setOrgView` *(helper)* | share-dialog |
 | `listPeople()` | share-dialog |
 | `activity(id)` | details-panel |
+| `openInBuilder(id)` *(helper)* | app.open (double-click, Enter, Open, details panel button) |
 
 Helpers added beyond the brief's list (flag these when rebuilding):
 - `store.path(id)`: breadcrumb trail.
 - `store.setOrgView(id, on)`: the "Everyone at Northwest Frozen can view" switch.
 - `store.pref(key, value)`: per-browser UI prefs (theme, grid/list). It would become a user setting.
 - `store.reset()`: Reset demo data.
+- `store.openInBuilder(id)`: connects to the v3 Recipe Builder (see below).
 
 Objects from `listItems`/`getItem` carry extra computed fields: `myRole` (`owner|edit|view`), `starred`, `owner`, `updatedByPerson`, `childCount` (folders).
+
+## Recipe Builder connection (v3)
+Opening a recipe goes to the v3 builder at `https://mahindra-nwf.github.io/nutrilabel-recipe-layout-v3/`. The v3 repo was **not** changed.
+- Both sites are on the same GitHub Pages origin, so they share localStorage. v3 stores its recipes as tabs in `nlv3_cards_book` (`{ active, tabs: [{ id, state, title? }] }`) and always opens the active tab.
+- `store.openInBuilder(id)` finds the recipe's tab (saved as `builderTabId` on the recipe, or a v3 tab with the same name), or creates one. It then makes that tab active and returns v3's URL.
+- New tabs: recipes made in the Workspace start as a blank v3 assembly; the made-up seeded recipes start from v3's own sample (loaded from v3's `shared/data.js`), renamed.
+- The Workspace name wins: each open renames the v3 tab to match the recipe.
+- One-way only: card numbers (kcal, cost, weight) are still the seed values and don't update from v3 yet.
+- v3 has no "back to Workspace" button; the browser Back button returns.
+- **Fragile on purpose:** this depends on v3's storage format. If v3 changes `nlv3_cards_book` or its state shape, this breaks. In the real app, "open recipe" should be a route with the recipe id.
+- When v3 isn't reachable (opened from disk, local server without v3), Open falls back to `builder.html`.
+- Local test of the connection: serve a folder that contains both repos side by side (same names as on Pages).
 
 ## Faked or hard-coded
 - Signed-in user is always **u1 "Jordan Lee"** (`ME` in store.js). No login.

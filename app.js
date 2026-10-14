@@ -120,7 +120,11 @@
     const it = store.getItem(id);
     if (!it) return;
     if (it.type === 'folder') go({ folderId: id, query: '', view: it.ownerId === store.me().id ? 'mine' : 'shared' });
-    else location.href = 'builder.html?id=' + encodeURIComponent(id);
+    else {
+      // the real v3 Recipe Builder when it's reachable (GitHub Pages), otherwise the placeholder page
+      NL.toast('Opening “' + it.name + '” in the Recipe Builder…');
+      store.openInBuilder(id).then((url) => { location.href = url || 'builder.html?id=' + encodeURIComponent(id); });
+    }
   }
   async function rename(id) {
     const it = store.getItem(id);
