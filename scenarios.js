@@ -21,7 +21,7 @@
           test: (e) => e.type === 'shared' && e.itemId === 'r2' && e.target === 'u5' },
         { as: 'u5', text: 'Click the 🔔 in the top bar. Jordan’s share is there; click it to jump to the soup.', test: (e) => e.type === 'notifications' },
         { as: 'u5', text: 'With the soup selected, press ⓘ to see its numbers and who has access.', test: (e) => e.type === 'details' && e.itemId === 'r2' },
-        { as: 'u5', text: 'Press F2 to try renaming it. Ken only has view access, so it’s refused.', test: (e) => e.type === 'blocked' },
+        { as: 'u5', text: 'Try ⋯ → Duplicate on the soup. Ken is a viewer, so he can’t copy recipes, and the app says why.', test: (e) => e.type === 'blocked' },
         { as: 'u5', text: 'Double-click the soup to open it in the Recipe Builder and check it. Use the browser’s Back button to come back.',
           test: (e) => e.type === 'opened' && e.itemId === 'r2' },
         { as: 'u1', text: 'Review done. As Jordan, open Soups → ⋯ on the soup → Share, and remove Ken (✕). Click Undo if you change your mind.',
@@ -62,12 +62,12 @@
       steps: [
         { as: 'u1', text: 'In Sauces & Dressings, open ⋯ on “House Vinaigrette” → Share, and turn on “Everyone at Northwest Frozen can view”.',
           test: (e) => e.type === 'shared' && e.itemId === 'r11' && e.org === true },
-        { as: 'u6', text: 'Press / and search for “vinaigrette”. Lena finds it even though nobody shared it with her by name.',
+        { as: 'u6', text: 'Type “vinaigrette” in the search box at the top. Lena finds it even though nobody shared it with her by name.',
           test: (e) => e.type === 'search' && /vinai/i.test(e.query) },
         { as: 'u6', text: 'Try ＋ New. Lena is in Sales (a viewer), so she can’t create recipes.', test: (e) => e.type === 'blocked' },
         { as: 'u4', text: 'Find House Vinaigrette (search, or the 🔔) and choose ⋯ → Duplicate. The copy belongs to Priya.',
           test: (e) => e.type === 'created' && e.copyOf === 'r11', capture: (e, c) => { c.copy = e.itemId; } },
-        { as: 'u4', text: 'Go to My recipes, select the copy, press F2 and rename it “Low-fat Vinaigrette”.', test: (e, c) => e.type === 'renamed' && e.itemId === c.copy },
+        { as: 'u4', text: 'Go to My recipes and use ⋯ → Rename on the copy to call it “Low-fat Vinaigrette”.', test: (e, c) => e.type === 'renamed' && e.itemId === c.copy },
         { as: 'u4', text: 'Drag the copy onto her “Test Kitchen” folder (or ⋯ → Move to…).', test: (e, c) => e.type === 'moved' && e.itemId === c.copy },
         { as: 'u1', text: 'Back as Jordan, open Sauces & Dressings, select House Vinaigrette and press ⓘ: the activity shows it went company-wide.',
           test: (e) => e.type === 'details' && e.itemId === 'r11' },
@@ -83,7 +83,7 @@
           test: (e) => e.type === 'sort' && e.key === 'costPerPortion' },
         { as: 'u3', text: 'Tick two recipes, click ⇢ Move in the bar, use “＋ New folder here” to make “Kids range”, and move them in.',
           test: (e) => e.type === 'move' && e.count >= 2 },
-        { as: 'u3', text: 'Select a recipe and press Delete to archive it. Then click Undo in the message at the bottom.',
+        { as: 'u3', text: 'Use ⋯ → Archive on a recipe. Then click Undo in the message at the bottom.',
           test: (e) => e.type === 'undo' && e.of === 'archive' },
         { as: 'u3', text: 'Archive a recipe for real, open Archived in the sidebar and Restore it.', test: (e) => e.type === 'restored' },
         { as: 'u1', text: 'Back as Jordan, open Recent: Marco’s changes are at the top.', test: (e) => e.type === 'view' && e.view === 'recent' },
@@ -94,7 +94,7 @@
 
   // Every feature in the brief. Ticks itself the first time it's used, by anyone.
   const FEATURES = [
-    { group: 'Find', id: 'search', label: 'Search by name or tag ( / )', test: (e) => e.type === 'search' },
+    { group: 'Find', id: 'search', label: 'Search by name or tag', test: (e) => e.type === 'search' },
     { group: 'Find', id: 'folder', label: 'Open a folder (breadcrumbs appear)', test: (e) => e.type === 'view' && !!e.folderId },
     { group: 'Find', id: 'shared', label: 'Shared with me', test: (e) => e.type === 'view' && e.view === 'shared' },
     { group: 'Find', id: 'recent', label: 'Recent', test: (e) => e.type === 'view' && e.view === 'recent' },
@@ -106,7 +106,7 @@
     { group: 'Find', id: 'notes', label: 'Notifications ( 🔔 )', test: (e) => e.type === 'notifications' },
     { group: 'Organise', id: 'new-recipe', label: 'New recipe', test: (e) => e.type === 'created' && e.kind === 'recipe' && !e.copyOf },
     { group: 'Organise', id: 'new-folder', label: 'New folder', test: (e) => e.type === 'created' && e.kind === 'folder' && !e.copyOf },
-    { group: 'Organise', id: 'rename', label: 'Rename (F2 or ⋯)', test: (e) => e.type === 'renamed' },
+    { group: 'Organise', id: 'rename', label: 'Rename', test: (e) => e.type === 'renamed' },
     { group: 'Organise', id: 'move', label: 'Move to… dialog', test: (e) => e.type === 'move' && e.via === 'dialog' },
     { group: 'Organise', id: 'drag', label: 'Drag onto a folder', test: (e) => e.type === 'move' && e.via === 'drag' },
     { group: 'Organise', id: 'bulk', label: 'Move several at once', test: (e) => e.type === 'move' && e.count >= 2 },
@@ -122,7 +122,6 @@
     { group: 'Share', id: 'org', label: 'Everyone at Northwest Frozen can view', test: (e) => e.type === 'shared' && e.org === true },
     { group: 'Share', id: 'blocked', label: 'Viewers can’t make changes (try ＋ New as Ken or Lena)', test: (e) => e.type === 'blocked' },
     { group: 'Work', id: 'open', label: 'Open in the Recipe Builder', test: (e) => e.type === 'opened' },
-    { group: 'Work', id: 'keys', label: 'Keyboard: / Enter F2 Delete', test: (e) => e.type === 'key' },
     { group: 'Work', id: 'theme', label: 'Light / dark theme', test: (e) => e.type === 'theme' },
   ];
 

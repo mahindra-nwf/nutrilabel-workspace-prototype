@@ -15,7 +15,7 @@ Files load as classic `<script>`s, not ES modules, so `file://` works too. Each 
 | `workspace.css` | All Workspace styles. Colors only via base.css tokens. |
 | `store.js` | **The only data layer.** All localStorage access lives here. Seed data. |
 | `ui.js` | Helpers: `el()` DOM builder, `timeAgo`, `money`, `avatar`, `toast` (with Undo), `ask` (name prompt), `menu`. |
-| `app.js` | Screen state, `#/view/folderId` routing, actions, selection, keyboard shortcuts. |
+| `app.js` | Screen state, `#/view/folderId` routing, actions, selection. No keyboard shortcuts (see below). |
 | `toolbar.js` | Top bar: brand, search, grid ⇄ list toggle, theme toggle, avatar. |
 | `sidebar.js` | ＋ New, the five views, Reset demo data. |
 | `breadcrumbs.js` | My recipes › Soups › … (crumbs are drop targets). |
@@ -39,17 +39,17 @@ Files load as classic `<script>`s, not ES modules, so `file://` works too. Each 
 | `getItem(id)` | app, new-menu, details-panel, share-dialog, move-dialog, builder.html |
 | `path(id)` *(helper)* | breadcrumbs, details-panel, share-dialog |
 | `createRecipe` / `createFolder` | new-menu; move-dialog (New folder here) |
-| `rename` | app (menu, F2) |
+| `rename` | app (⋯ menu) |
 | `move` | app.moveIds (drag & drop, Move to… dialog, Undo) |
 | `star` | app (card star, menu) |
-| `archive` / `restore` | app (menu, Delete key, selection bar, Undo toast) |
+| `archive` / `restore` | app (⋯ menu, selection bar, Undo toast) |
 | `duplicate` | app (menu) |
 | `listShares(id)` | details-panel, share-dialog |
 | `share` / `unshare` | share-dialog |
 | `setOrgView` *(helper)* | share-dialog |
 | `listPeople()` | share-dialog |
 | `activity(id)` | details-panel |
-| `openInBuilder(id)` *(helper)* | app.open (double-click, Enter, Open, details panel button) |
+| `openInBuilder(id)` *(helper)* | app.open (double-click, ⋯ → Open, details panel button) |
 
 Helpers added beyond the brief's list (flag these when rebuilding):
 - `store.path(id)`: breadcrumb trail.
@@ -80,8 +80,14 @@ Opening a recipe goes to the v3 builder at `https://mahindra-nwf.github.io/nutri
 - **Switch person** (top right): one browser plays all six people. Each person sees their own My recipes, Shared with me, stars and notifications.
 - **Company roles** (`person.role`): *admin* and *editor* can create, copy and share. *viewer* (Ken in QA, Lena in Sales) can only look: ＋ New, Duplicate and edit access are refused with a message, and the share dialog won't give them “Can edit”. Admin has no extra powers yet.
 - **Editors can re-share** what they can edit (Ana shares Jordan's folder with Marco). Worth confirming with chefs.
-- **Use cases** (`scenarios.js`): 1) QA review, Jordan + Ken; 2) new product line, Jordan + Ana + Marco; 3) house standard for everyone, Jordan + Lena + Priya; 4) clean-up day with undo, Marco + Jordan. Doing all four ticks all 30 checklist features (checked end-to-end in the browser).
+- **Use cases** (`scenarios.js`): 1) QA review, Jordan + Ken; 2) new product line, Jordan + Ana + Marco; 3) house standard for everyone, Jordan + Lena + Priya; 4) clean-up day with undo, Marco + Jordan. Doing all four ticks all 29 checklist features (checked end-to-end in the browser).
 - Guide progress and the checklist are per-browser preferences (`store.pref('demo')`), not recipe data. "Reset demo data" doesn't clear them; the checklist has its own "Clear".
+
+## No keyboard shortcuts (decision, 2026-10-15)
+The brief asked for / F2 Enter Delete shortcuts. The owner then decided the Workspace should have **none**: everything is done with visible buttons and menus.
+- Still working: Esc closes an open ⋯ menu or dialog, Enter confirms a name box, and Ctrl/⌘+C / V are the browser's own text copy/paste.
+- The use cases and checklist use buttons and menus only. The "Keyboard" checklist item was removed.
+- The Recipe Builder (v3) keeps its own keys (undo/redo, paste card, F to fit, Enter between weights).
 
 ## Faked or hard-coded
 - Signed-in user starts as **u1 "Jordan Lee"** and can be switched (`ME` in store.js). No login.

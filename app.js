@@ -213,20 +213,9 @@
   }
 
   /* ---------- keyboard ---------- */
-  addEventListener('keydown', (e) => {
-    const typing = e.target.closest('input, textarea, select, [contenteditable]');
-    if (e.key === '/' && !typing) { e.preventDefault(); document.getElementById('search').focus(); track({ type: 'key', key: '/' }); return; }
-    if (typing || document.querySelector('.nl-prompt-ov')) return;
-    const sel = state.items.filter((i) => state.selected.has(i.id));
-    if (['Enter', 'F2', 'Delete', 'Backspace'].includes(e.key) && sel.length) track({ type: 'key', key: e.key });
-    if (e.key === 'Escape') { NL.closeMenu(); if (state.selected.size) { state.selected.clear(); refresh(); } }
-    else if (e.key === 'Enter' && sel.length === 1) { e.preventDefault(); open(sel[0].id); }
-    else if (e.key === 'F2' && sel.length === 1) { e.preventDefault(); rename(sel[0].id); }
-    else if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length) {
-      e.preventDefault();
-      state.view === 'archived' ? NL.toast('Already archived — use Restore to bring it back') : archive(sel.filter((i) => ['owner', 'edit'].includes(i.myRole)).map((i) => i.id));
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); state.selected = new Set(state.items.map((i) => i.id)); refresh(); }
-  });
+  // No keyboard shortcuts on purpose (owner's call): everything is done with visible buttons and menus.
+  // Only Esc closes an open ⋯ menu; dialogs handle Esc / Enter themselves, and Ctrl/⌘+C / V stay the browser's own.
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') NL.closeMenu(); });
 
   // click on empty space clears the selection
   document.getElementById('items').addEventListener('click', (e) => {

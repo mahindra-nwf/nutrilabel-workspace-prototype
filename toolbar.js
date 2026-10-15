@@ -15,7 +15,7 @@
       });
       bar.replaceChildren(
         el('a.brand', { href: '#/mine' }, 'NutriLabel ', el('small', {}, 'Workspace')),
-        el('label.ws-search', {}, el('span.ic', {}, '⌕'), search, el('span.kbd', {}, '/')),
+        el('label.ws-search', {}, el('span.ic', {}, '⌕'), search),
         el('span.spacer'),
         el('div.ws-seg', { id: 'layoutSeg', role: 'group', 'aria-label': 'Layout' },
           el('button', { dataset: { l: 'grid' }, title: 'Grid', onclick: () => NL.app.setLayout('grid') }, '▦ Grid'),

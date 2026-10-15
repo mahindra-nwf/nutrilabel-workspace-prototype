@@ -5,8 +5,8 @@
     const archived = item.status === 'archived';
     const A = NL.app;
     const items = [
-      { icon: '↗', label: 'Open', hint: 'Enter', run: () => A.open(item.id) },
-      { icon: '✎', label: 'Rename', hint: 'F2', disabled: !canEdit, run: () => A.rename(item.id) },
+      { icon: '↗', label: 'Open', run: () => A.open(item.id) },
+      { icon: '✎', label: 'Rename', disabled: !canEdit, run: () => A.rename(item.id) },
       { icon: '⇄', label: canEdit ? 'Share' : 'See who has access', run: () => A.share(item.id) },
       { icon: '⇢', label: 'Move to…', disabled: !canEdit || archived, run: () => A.moveTo([item.id]) },
       { icon: '⧉', label: 'Duplicate', run: () => A.duplicate(item.id) },
@@ -15,7 +15,7 @@
       'sep',
       archived
         ? { icon: '↺', label: 'Restore', disabled: !canEdit, run: () => A.restore([item.id]) }
-        : { icon: '⌫', label: 'Archive', hint: 'Del', danger: true, disabled: !canEdit, run: () => A.archive([item.id]) },
+        : { icon: '⌫', label: 'Archive', danger: true, disabled: !canEdit, run: () => A.archive([item.id]) },
     ];
     NL.menu(x, y, items);
   }
