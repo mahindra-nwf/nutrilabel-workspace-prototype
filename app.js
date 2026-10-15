@@ -1,14 +1,16 @@
-/* app.js — screen state, routing (#/view/folderId), actions and keyboard shortcuts.
+/* app.js — screen state, routing (#/view/folderId, #/tag/tagId), actions.
    Every data change goes through store.*; then we re-render. */
 (function () {
   const { el } = NL;
-  const VIEWS = ['mine', 'shared', 'recent', 'starred', 'archived'];
+  const VIEWS = ['mine', 'shared', 'recent', 'starred', 'archived', 'tag'];
   // tell the use-case guide what just happened (it ticks steps and the feature checklist)
   const track = (e) => NL.demo && NL.demo.track(e);
   store.subscribe(track);
 
   const state = {
     view: 'mine', folderId: null, query: '',
+    tagId: null,     // #/tag/<id>: every recipe with this tag, across folders
+    tagFilter: [],   // filter chips above the recipes
     layout: store.pref('layout') || 'grid',
     theme: store.pref('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
     detailsOpen: !!store.pref('details'),
@@ -19,24 +21,28 @@
 
   /* ---------- routing ---------- */
   function readHash() {
-    const [, view, folderId] = location.hash.split('/');
+    const [, view, id] = location.hash.split('/');
     state.view = VIEWS.includes(view) ? view : 'mine';
-    state.folderId = folderId && store.getItem(folderId) ? folderId : null;
+    state.tagId = state.view === 'tag' && store.getTag(id) ? id : null;
+    if (state.view === 'tag' && !state.tagId) state.view = 'mine';
+    state.folderId = state.view !== 'tag' && id && store.getItem(id) ? id : null;
   }
   function go(patch, opts = {}) {
     const prevKey = state.view + state.folderId + state.query;
-    const prev = { view: state.view, folderId: state.folderId, query: state.query };
+    const prev = { view: state.view, folderId: state.folderId, query: state.query, tagId: state.tagId };
     Object.assign(state, patch);
+    // a new place in the sidebar starts without filters (moving between folders keeps them)
+    if ((state.view !== prev.view || state.tagId !== prev.tagId) && !patch.tagFilter) state.tagFilter = [];
     if (state.view + state.folderId + state.query !== prevKey) state.selected.clear();
-    if (state.view !== prev.view || state.folderId !== prev.folderId) track({ type: 'view', view: state.view, folderId: state.folderId });
+    if (state.view !== prev.view || state.folderId !== prev.folderId || state.tagId !== prev.tagId) track({ type: 'view', view: state.view, folderId: state.folderId, tagId: state.tagId });
     if (state.query && state.query !== prev.query) track({ type: 'search', query: state.query });
-    const hash = '#/' + state.view + (state.folderId ? '/' + state.folderId : '');
+    const hash = '#/' + state.view + (state.view === 'tag' ? '/' + state.tagId : state.folderId ? '/' + state.folderId : '');
     if (location.hash !== hash) {
       if (opts.replace) history.replaceState(null, '', hash); else history.pushState(null, '', hash);
     }
     refresh();
   }
-  const onNav = () => { readHash(); state.query = ''; state.selected.clear(); refresh(); track({ type: 'view', view: state.view, folderId: state.folderId }); };
+  const onNav = () => { readHash(); state.query = ''; state.tagFilter = []; state.selected.clear(); refresh(); track({ type: 'view', view: state.view, folderId: state.folderId, tagId: state.tagId }); };
   addEventListener('popstate', onNav);
   addEventListener('hashchange', onNav);
 
@@ -44,7 +50,8 @@
   function refresh(opts = {}) {
     if (opts.select) { state.selected = new Set([opts.select]); state.anchor = opts.select; }
     document.documentElement.dataset.theme = state.theme;
-    state.items = store.listItems({ folderId: state.folderId, view: state.view, query: state.query });
+    if (state.view === 'tag' && !store.getTag(state.tagId)) { state.view = 'mine'; state.tagId = null; } // the tag was deleted
+    state.items = store.listItems({ folderId: state.folderId, view: state.view, query: state.query, tagId: state.tagId, tags: state.tagFilter });
     // drop selections that are no longer on screen
     const ids = new Set(state.items.map((i) => i.id));
     [...state.selected].forEach((id) => { if (!ids.has(id)) state.selected.delete(id); });
@@ -52,6 +59,7 @@
     NL.toolbar.render(state);
     NL.sidebar.render(state);
     NL.breadcrumbs.render(state);
+    NL.tagFilters.render(state);
     renderSelectionBar();
     renderHeadTools();
     if (!state.items.length) renderEmpty();
@@ -65,7 +73,12 @@
     const root = document.getElementById('items');
     const folder = state.folderId && store.getItem(state.folderId);
     const canAdd = !state.query && (state.view === 'mine' && !folder || (folder && ['owner', 'edit'].includes(folder.myRole)));
+    if (state.tagFilter.length) {
+      return root.replaceChildren(el('div.ws-empty', {}, el('div.ws-empty-ic', {}, '⌕'), el('p', {}, 'No recipes here match these filters.'),
+        el('button.btn', { onclick: () => setTagFilter([]) }, 'Clear filters')));
+    }
     const msg = state.query ? 'Nothing matches “' + state.query + '”.'
+      : state.view === 'tag' ? 'No recipes you can see have this tag yet.'
       : { mine: 'No recipes here yet.', shared: 'Nobody has shared anything with you yet.', recent: 'Recipes you open or change show up here.',
           starred: 'Star the recipes you use most and they’ll wait for you here.', archived: 'Nothing archived. Archived recipes can be restored any time.' }[folder ? 'mine' : state.view];
     root.replaceChildren(el('div.ws-empty', {},
@@ -87,6 +100,7 @@
       el('b', {}, n + ' selected'),
       el('span.spacer'),
       !archivedView ? el('button.btn.sm', { disabled: !editable.length, onclick: () => moveTo(editable.map((i) => i.id)) }, '⇢ Move') : null,
+      !archivedView && editable.some((i) => i.type === 'recipe') ? el('button.btn.sm', { onclick: () => NL.tags.open(editable.filter((i) => i.type === 'recipe').map((i) => i.id)) }, '🏷 Tags') : null,
       editable.length === 1 && n === 1 ? el('button.btn.sm', { onclick: () => share(editable[0].id) }, '⇄ Share') : null,
       archivedView
         ? el('button.btn.sm', { disabled: !editable.length, onclick: () => restore(editable.map((i) => i.id)) }, '↺ Restore')
@@ -187,6 +201,7 @@
     refresh();
     track({ type: 'sort', key, dir });
   }
+  function setTagFilter(ids) { state.tagFilter = ids; state.selected.clear(); refresh(); track({ type: 'filter', tags: ids.slice() }); }
   function resetDemo() { store.reset(); state.selected.clear(); go({ view: 'mine', folderId: null, query: '' }); NL.toast('Demo data reset'); }
   function toggleTheme() { state.theme = state.theme === 'dark' ? 'light' : 'dark'; store.pref('theme', state.theme); refresh(); track({ type: 'theme', theme: state.theme }); }
 
@@ -222,7 +237,7 @@
     if (e.target === e.currentTarget || e.target.classList.contains('ws-grid') || e.target.classList.contains('ws-folders') || e.target.classList.contains('ws-sec')) { state.selected.clear(); refresh(); }
   });
 
-  NL.app = { state, track, switchUser, reveal, go, refresh, select, selectAll, toggleSelect, moveTo, share, details, toggleDetails, setLayout, setSort, open, rename, duplicate, star, archive, restore, moveIds, dropOn, resetDemo, toggleTheme };
+  NL.app = { state, track, setTagFilter, switchUser, reveal, go, refresh, select, selectAll, toggleSelect, moveTo, share, details, toggleDetails, setLayout, setSort, open, rename, duplicate, star, archive, restore, moveIds, dropOn, resetDemo, toggleTheme };
   readHash();
   refresh();
 })();

@@ -2,7 +2,7 @@
 (function () {
   const { el, timeAgo, money } = NL;
   const VERB = { created: 'created', edited: 'edited', shared: 'shared', unshared: 'removed access for', renamed: 'renamed', moved: 'moved',
-    versioned: 'saved a new version of', archived: 'archived', restored: 'restored', opened: 'opened' };
+    versioned: 'saved a new version of', archived: 'archived', restored: 'restored', opened: 'opened', tagged: 'tagged' };
 
   let lastTracked = null;
   // what the panel describes: the one selected item, else the open folder
@@ -56,6 +56,10 @@
           el('span.ws-thumb-tags', {}, (it.tags || []).join(' · '))) : null,
         el('div.ws-det-stats', {}, stats.map(([k, v]) => el('div', {}, el('b', {}, String(v)), el('span', {}, k)))),
         !isFolder ? el('button.btn.primary.ws-det-open', { onclick: () => NL.app.open(it.id) }, '↗ Open in Recipe Builder') : null,
+
+        !isFolder ? el('h4', {}, 'Tags') : null,
+        !isFolder ? el('div.ws-det-tags', {}, (it.tagList || []).length ? (it.tagList || []).map((t) => NL.tags.chip(t)) : el('span.faint', {}, 'No tags yet.')) : null,
+        !isFolder && canEdit ? el('button.btn.sm', { onclick: () => NL.tags.open([it.id]) }, '🏷 Edit tags') : null,
 
         el('h4', {}, 'Who has access'),
         access,

@@ -144,9 +144,10 @@ a.btn { text-decoration: none; }
 .ws-table .c-kcalPerPortion { width: 104px; } .ws-table .c-costPerPortion { width: 110px; }
 .ws-row-name .ws-name { flex: 1 1 auto; }
 .ws-items { container-type: inline-size; }
-@container (max-width: 860px) { .ws-table .c-versions { display: none; } }
-@container (max-width: 780px) { .ws-table .c-owner { display: none; } }
-@container (max-width: 620px) { .ws-table .c-updatedAt { display: none; } .ws-table td, .ws-table th { padding-left: 6px; padding-right: 6px; } }
+@container (max-width: 960px) { .ws-table .c-versions { display: none; } }
+@container (max-width: 540px) { .ws-table .c-tags { display: none; } }
+@container (max-width: 880px) { .ws-table .c-owner { display: none; } }
+@container (max-width: 720px) { .ws-table .c-updatedAt { display: none; } .ws-table td, .ws-table th { padding-left: 6px; padding-right: 6px; } }
 .ws-row { cursor: default; user-select: none; }
 .ws-row.folder { cursor: pointer; }
 .ws-row:hover td { background: var(--hover); }
@@ -303,6 +304,78 @@ span.ws-share-role { text-align: right; padding-right: 36px; width: auto; }
 .ws-checklist li.on { color: var(--text); }
 .ws-checklist li.on .ws-check-ic { color: var(--final); }
 
+/* ---------- tags ---------- */
+/* a tag's own colour (--tc) comes from data, like a recipe's thumbnail colour; everything else uses the tokens */
+.tag { display: inline-flex; align-items: center; gap: 4px; max-width: 140px; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; line-height: 1.6;
+  background: color-mix(in srgb, var(--tc, var(--muted)) 14%, var(--panel)); color: color-mix(in srgb, var(--tc, var(--muted)) 70%, var(--text));
+  border: 1px solid color-mix(in srgb, var(--tc, var(--muted)) 30%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tag.free { background: var(--chip); color: var(--muted); border-color: transparent; font-weight: 500; }
+.tag.more { background: var(--panel); color: var(--muted); border-color: var(--line); }
+.tag.big { font-size: 15px; padding: 2px 10px; max-width: none; }
+.tag-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tc, var(--muted)); flex: none; display: inline-block; }
+.ws-thumb-tags { display: flex; gap: 4px; flex-wrap: nowrap; overflow: hidden; padding: 0 !important; background: none !important; right: 46px; }
+.ws-thumb-tags .tag { flex: 0 1 auto; min-width: 0; }
+.ws-thumb-tags .tag.more, .ws-thumb-tags .tag.status { flex: none; }
+.ws-thumb-tags .tag { background: var(--panel); }
+.ws-thumb-tags .tag.free { color: var(--muted); }
+.ws-row-tags { display: inline-flex; gap: 4px; max-width: 100%; overflow: hidden; }
+.ws-table .c-tags { width: 210px; }
+.ws-det-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+
+/* editor */
+.tag-ed h4 small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.tag-ed-note { margin: 0 0 6px; font-size: 12.5px; }
+.tag-ed-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 14px; font-size: 13px; border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+.tag-btn:hover { border-color: var(--tc, var(--accent)); }
+.tag-btn.on { background: color-mix(in srgb, var(--tc, var(--accent)) 16%, var(--panel)); border-color: var(--tc, var(--accent)); font-weight: 650; }
+.tag-btn.part { border-style: dashed; border-color: var(--tc, var(--accent)); }
+.tag-btn.free { background: var(--chip); border-color: transparent; }
+.tag-btn.free.part { border: 1px dashed var(--muted); background: var(--panel); }
+.tag-free-row { display: inline-flex; align-items: center; }
+.tag-x { border: 0; background: none; color: var(--muted); width: 22px; height: 22px; border-radius: 50%; margin-left: -2px; }
+.tag-x:hover { background: var(--danger-soft); color: var(--danger); }
+.tag-add { display: flex; gap: 8px; margin-top: 10px; }
+.tag-add .tag-input { flex: 1; min-width: 0; }
+
+/* filter chips above the recipes */
+.ws-filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 24px 0; }
+.flt-label { font-size: 12px; color: var(--faint); margin-right: 2px; }
+.flt-btn { border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 16px; padding: 4px 12px; font-size: 12.5px; }
+.flt-btn:hover { background: var(--hover); }
+.flt-btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 650; }
+.flt-clear { font-size: 12.5px; margin-left: 4px; }
+.flt-menu { min-width: 230px; max-height: 340px; overflow: auto; }
+.flt-opt { display: flex; align-items: center; gap: 9px; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.flt-opt:hover { background: var(--hover); }
+.flt-opt input { accent-color: var(--accent); margin: 0; }
+.flt-opt .grow { display: inline-flex; align-items: center; gap: 7px; }
+
+/* sidebar */
+.ws-side { overflow-y: auto; }
+.ws-tags-side { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line2); }
+.ws-tags-head { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 0 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--faint); }
+.ws-tags-gname { font-size: 11px; color: var(--faint); padding: 2px 14px; }
+.ws-tagnav { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; text-align: left; padding: 5px 14px; border-radius: 16px; color: var(--text); font-size: 13px; }
+.ws-tagnav:hover { background: var(--hover); }
+.ws-tagnav.on { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+.ws-tagnav .tag-dot { width: 9px; height: 9px; margin: 0 4px; }
+.ws-tag-hash { width: 17px; text-align: center; color: var(--faint); }
+.ws-tag-n { font-size: 11px; color: var(--faint); }
+.ws-tags-more { font-size: 12px; padding: 2px 14px; text-align: left; }
+
+/* admin */
+.tag-admin > p { margin: 0 0 6px; font-size: 12.5px; }
+.ta-group { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-top: 10px; }
+.ta-head { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.ta-head .spacer { flex: 1; }
+.ta-row { display: flex; align-items: center; gap: 10px; padding: 3px 0 3px 4px; border-top: 1px solid var(--line2); }
+.ta-row .faint { font-size: 12px; white-space: nowrap; }
+.ta-swatch { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--line); flex: none; padding: 0; }
+.ta-hash { width: 16px; text-align: center; color: var(--faint); }
+.ta-add { font-size: 12.5px; margin-top: 6px; }
+.ta-newgroup { margin-top: 10px; }
+
 @media (max-width: 1200px) { .ws-details { width: 300px; } }
 
 /* ---------- tablet ---------- */
@@ -316,7 +389,7 @@ span.ws-share-role { text-align: right; padding-right: 36px; width: auto; }
   .ws-new .plus { font-size: 22px; }
   .ws-nav button { font-size: 0; justify-content: center; padding: 10px; }
   .ws-nav .ic { font-size: 16px; }
-  .ws-side-foot { display: none; }
+  .ws-side-foot, .ws-tags-side { display: none; }
   .ws-search { margin-left: 8px; }
   .ws-head, .ws-items { padding-left: 16px; padding-right: 16px; }
 }

@@ -92,6 +92,27 @@
     },
   ];
 
+  SCENARIOS.push({
+    id: 'tags-approval',
+    title: 'Tag recipes and get them approved',
+    people: ['u1', 'u2', 'u6'],
+    story: 'Jordan adds a new sales channel. Ana tags her soups for a trial, Jordan approves one, and Lena in Sales finds everything approved in one click.',
+    steps: [
+      { as: 'u1', text: 'In the sidebar under Tags, click ⚙ (Manage tags) and add a Channel option called “Meal kit”.',
+        test: (e) => e.type === 'tagcreated' && e.groupId === 'g_channel' },
+      { as: 'u2', text: 'Open Shared with me → Soups. Tick two soups and click 🏷 Tags in the bar: set Status “In trial” and Channel “Meal kit”.',
+        test: (e) => e.type === 'bulktag' && e.count >= 2 },
+      { as: 'u2', text: 'On “Roasted Carrot Ginger Soup” choose ⋯ → Edit tags and add your own tag “spring-26”.',
+        test: (e) => e.type === 'tagged' && e.itemId === 'r3' && (e.added || []).some((n) => /spring/i.test(n)) },
+      { as: 'u1', text: 'Back as Jordan, open Soups and use the Status filter above the recipes to show only “In trial”.',
+        test: (e) => e.type === 'filter' && (e.tags || []).includes('t_trial') },
+      { as: 'u1', text: 'Select Roasted Carrot Ginger Soup, open ⓘ details and use 🏷 Edit tags to set Status “Approved”.',
+        test: (e) => e.type === 'tagged' && e.itemId === 'r3' && (e.added || []).includes('Approved') },
+      { as: 'u6', text: 'As Lena in Sales, click Approved under Tags in the sidebar: every approved recipe she can see, from every folder.',
+        test: (e) => e.type === 'view' && e.view === 'tag' && e.tagId === 't_approved' },
+    ],
+  });
+
   // Every feature in the brief. Ticks itself the first time it's used, by anyone.
   const FEATURES = [
     { group: 'Find', id: 'search', label: 'Search by name or tag', test: (e) => e.type === 'search' },
@@ -121,6 +142,12 @@
     { group: 'Share', id: 'unshare', label: 'Remove someone’s access', test: (e) => e.type === 'unshared' },
     { group: 'Share', id: 'org', label: 'Everyone at Northwest Frozen can view', test: (e) => e.type === 'shared' && e.org === true },
     { group: 'Share', id: 'blocked', label: 'Viewers can’t make changes (try ＋ New as Ken or Lena)', test: (e) => e.type === 'blocked' },
+    { group: 'Tags', id: 'tag-edit', label: 'Edit a recipe’s tags', test: (e) => e.type === 'tagged' },
+    { group: 'Tags', id: 'tag-free', label: 'Add your own tag', test: (e) => e.type === 'tagcreated' && !e.groupId },
+    { group: 'Tags', id: 'tag-bulk', label: 'Tag several recipes at once', test: (e) => e.type === 'bulktag' },
+    { group: 'Tags', id: 'tag-filter', label: 'Filter by Status, Diet, Channel or tag', test: (e) => e.type === 'filter' && (e.tags || []).length > 0 },
+    { group: 'Tags', id: 'tag-browse', label: 'Browse a tag from the sidebar', test: (e) => e.type === 'view' && e.view === 'tag' },
+    { group: 'Tags', id: 'tag-admin', label: 'Manage tag groups (admin)', test: (e) => (e.type === 'tagcreated' && !!e.groupId) || e.type === 'tagadmin' },
     { group: 'Work', id: 'open', label: 'Open in the Recipe Builder', test: (e) => e.type === 'opened' },
     { group: 'Work', id: 'theme', label: 'Light / dark theme', test: (e) => e.type === 'theme' },
   ];

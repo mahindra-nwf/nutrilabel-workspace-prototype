@@ -9,7 +9,7 @@ window.NL = window.NL || {};
     for (const [k, v] of Object.entries(attrs || {})) {
       if (v == null || v === false) continue;
       if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
-      else if (k === 'style' && typeof v === 'object') Object.assign(n.style, v);
+      else if (k === 'style' && typeof v === 'object') for (const [p, x] of Object.entries(v)) { if (p.startsWith('--')) n.style.setProperty(p, x); else n.style[p] = x; } // CSS variables need setProperty
       else if (k === 'dataset') Object.assign(n.dataset, v);
       else if (k in n && k !== 'list') n[k] = v;
       else n.setAttribute(k, v === true ? '' : v);

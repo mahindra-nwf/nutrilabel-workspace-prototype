@@ -3,12 +3,17 @@
   const { el, timeAgo, money, firstName } = NL;
   const COLS = [
     { key: 'name', label: 'Name', get: (i) => i.name.toLowerCase() },
+    { key: 'tags', label: 'Tags', get: (i) => statusRank(i) },
     { key: 'owner', label: 'Owner', get: (i) => (i.owner ? i.owner.name : '') },
     { key: 'updatedAt', label: 'Last changed', get: (i) => i.updatedAt },
     { key: 'versions', label: 'Versions', get: (i) => i.versions || 0, num: true },
     { key: 'kcalPerPortion', label: 'kcal / portion', get: (i) => i.kcalPerPortion || 0, num: true },
     { key: 'costPerPortion', label: 'Cost / portion', get: (i) => i.costPerPortion || 0, num: true },
   ];
+
+  // sorting the Tags column orders by Status: Draft, In trial, Approved, Discontinued, then no status
+  const STATUS_ORDER = ['t_draft', 't_trial', 't_approved', 't_disc'];
+  const statusRank = (i) => { const s = (i.tagList || []).find((t) => t.groupId === 'g_status'); const k = s ? STATUS_ORDER.indexOf(s.id) : -1; return k < 0 ? 9 : k; };
 
   function render(state, items) {
     const root = document.getElementById('items');
@@ -48,6 +53,7 @@
         el('span.ws-name', { title: i.name }, i.name),
         G.sharedBadge(i),
         el('span.ws-row-star', {}, G.star(i)))),
+      el('td.c-tags', {}, isFolder ? '' : el('span.ws-row-tags', {}, NL.tags.chips(i.tagList, 2))),
       el('td.c-owner', {}, i.owner ? el('span.ws-owner', {}, NL.avatar(i.owner, 22), i.owner.id === me.id ? 'me' : i.owner.name) : ''),
       el('td.muted.c-updatedAt', {}, timeAgo(i.updatedAt) + (who ? ' · ' + who : '')),
       el('td.num-col.c-versions', {}, isFolder ? '—' : i.versions),

@@ -83,7 +83,7 @@
     return wire(el('div.ws-card' + (r.status === 'archived' ? '.archived' : ''), {},
       el('div.ws-thumb', { style: { background: r.thumbnailColor } },
         check(state, r),
-        el('span.ws-thumb-tags', {}, (r.tags || []).slice(0, 2).join(' · ')),
+        el('span.ws-thumb-tags', {}, NL.tags.chips(r.tagList, 2)),
         star(r)),
       el('div.ws-card-body', {},
         el('div.ws-card-head', {}, el('div.ws-name', { title: r.name }, r.name), sharedBadge(r), more(r)),

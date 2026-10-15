@@ -125,7 +125,7 @@
       })),
       complete ? el('div.ws-demo-done', {},
         el('b', {}, 'Use case complete ✓'),
-        el('div', {}, nextCase(sc) ? el('button.btn.primary.sm', { onclick: () => start(nextCase(sc).id) }, 'Next: ' + nextCase(sc).title) : 'That’s all four. Check the feature checklist for anything left.')) : null,
+        el('div', {}, nextCase(sc) ? el('button.btn.primary.sm', { onclick: () => start(nextCase(sc).id) }, 'Next: ' + nextCase(sc).title) : 'That’s all of them. Check the feature checklist for anything left.')) : null,
     ];
   }
   const nextCase = (sc) => NL.SCENARIOS.find((s) => s.id !== sc.id && (st.progress[s.id] || 0) < s.steps.length);

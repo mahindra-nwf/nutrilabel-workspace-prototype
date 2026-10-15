@@ -9,6 +9,11 @@
       root.replaceChildren(el('span.crumb.last', {}, 'Search results for “' + state.query + '”'));
       return;
     }
+    if (state.view === 'tag') {
+      const t = store.getTag(state.tagId);
+      root.replaceChildren(el('span.crumb.last', {}, (t && t.groupName ? t.groupName : 'Tag') + ': '), t ? NL.tags.chip(t, '.big') : '');
+      return;
+    }
     const me = store.me();
     const trail = state.folderId ? store.path(state.folderId) : [];
     // a folder someone else owns starts from "Shared with me"

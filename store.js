@@ -3,7 +3,7 @@
    Screens call these and get plain copies back; they never mutate store data directly.
    All data is made up. */
 (function () {
-  const KEY = 'nlws.v3'; // v3: people have job titles, activity has targets, current person is switchable
+  const KEY = 'nlws.v4'; // v4: tag groups + tags (recipe.tags holds tag ids)
   let ME = 'u1'; // who is "signed in"; the demo can switch person (store.switchUser)
   const ORG = 'Northwest Frozen';
   const H = 3600e3, D = 24 * H;
@@ -100,7 +100,41 @@
       activity.push({ id: uid('a'), itemId: r.id, who: r.updatedBy, what: 'edited', when: r.updatedAt });
     });
     // Jordan last checked notifications 6 h ago, so a couple of teammates' edits show as new
-    return { people, items, activity, meId: 'u1', seen: { u1: now - 6 * H } };
+    // ---- tags: admin-managed groups (Status, Diet, Channel) + free tags anyone can add
+    const tagGroups = [
+      { id: 'g_status', name: 'Status', choice: 'one' },
+      { id: 'g_diet', name: 'Diet', choice: 'many' },
+      { id: 'g_channel', name: 'Channel', choice: 'many' },
+    ];
+    const tags = [
+      { id: 't_draft', name: 'Draft', groupId: 'g_status', color: '#868e96' },
+      { id: 't_trial', name: 'In trial', groupId: 'g_status', color: '#b08800' },
+      { id: 't_approved', name: 'Approved', groupId: 'g_status', color: '#2b8a3e' },
+      { id: 't_disc', name: 'Discontinued', groupId: 'g_status', color: '#c92a2a' },
+      { id: 't_vegan', name: 'Vegan', groupId: 'g_diet', color: '#5c940d' },
+      { id: 't_vegetarian', name: 'Vegetarian', groupId: 'g_diet', color: '#2f9e44' },
+      { id: 't_gf', name: 'Gluten-free', groupId: 'g_diet', color: '#e67700' },
+      { id: 't_df', name: 'Dairy-free', groupId: 'g_diet', color: '#1971c2' },
+      { id: 't_retail', name: 'Retail', groupId: 'g_channel', color: '#7c5cff' },
+      { id: 't_foodservice', name: 'Food service', groupId: 'g_channel', color: '#0c8599' },
+      { id: 't_airline', name: 'Airline', groupId: 'g_channel', color: '#c2255c' },
+    ];
+    const free = (name) => {
+      let t = tags.find((x) => !x.groupId && x.name.toLowerCase() === name.toLowerCase());
+      if (!t) { t = { id: 'tf_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, groupId: null, color: null }; tags.push(t); }
+      return t.id;
+    };
+    const STATUS = ['t_approved', 't_approved', 't_trial', 't_draft'];
+    items.filter((i) => i.type === 'recipe').forEach((r, i) => {
+      const ids = [r.status === 'archived' ? 't_disc' : STATUS[i % STATUS.length]];
+      r.tags.forEach((t) => ids.push(t === 'vegan' ? 't_vegan' : t === 'vegetarian' ? 't_vegetarian' : free(t)));
+      if (r.tags.includes('vegan')) ids.push('t_df');
+      if (r.folderId === 'f4' || r.tags.includes('frozen')) ids.push('t_retail');
+      if (r.folderId === 'f2') ids.push('t_foodservice');
+      if (i % 7 === 3) ids.push('t_airline');
+      r.tags = [...new Set(ids)];
+    });
+    return { people, items, activity, tagGroups, tags, meId: 'u1', seen: { u1: now - 6 * H } };
   }
   function person2(people, id) { const p = people.find((x) => x.id === id); return p ? p.name : ''; }
 
@@ -129,9 +163,28 @@
     o.starred = (item.starredBy || []).includes(ME);
     o.owner = person(item.ownerId);
     if (item.updatedBy) o.updatedByPerson = person(item.updatedBy);
+    if (item.type === 'recipe') o.tagList = resolveTags(item.tags);
     if (item.type === 'folder') o.childCount = db.items.filter((c) => (c.type === 'folder' ? c.parentId : c.folderId) === item.id && c.status === 'active').length;
     return o;
   }
+  // tag ids -> [{ id, name, color, groupId, groupName }], Status first, then the other groups in order, then free tags
+  function resolveTags(ids) {
+    const order = (t) => (t.groupId ? db.tagGroups.findIndex((g) => g.id === t.groupId) : 99);
+    return (ids || []).map((id) => db.tags.find((t) => t.id === id)).filter(Boolean)
+      .map((t) => Object.assign(copy(t), { groupName: t.groupId ? (db.tagGroups.find((g) => g.id === t.groupId) || {}).name : null }))
+      .sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name));
+  }
+  const tagName = (id) => (db.tags.find((t) => t.id === id) || {}).name;
+  const isAdmin = () => person(ME).role === 'admin';
+  function mustAdmin() { if (!isAdmin()) throw new Error('Only an admin can manage tag groups.'); }
+  // a recipe matches the filter when it has at least one chosen tag in every group that has a choice (free tags count as one group)
+  function matchesTags(item, tagIds) {
+    if (!tagIds || !tagIds.length) return true;
+    const byGroup = {};
+    tagIds.forEach((id) => { const t = db.tags.find((x) => x.id === id); if (t) (byGroup[t.groupId || 'free'] = byGroup[t.groupId || 'free'] || []).push(id); });
+    return Object.values(byGroup).every((ids) => ids.some((id) => (item.tags || []).includes(id)));
+  }
+
   // activity log + change event. extra = machine-readable details (target person, folder, …) used by notifications and the demo guide
   function log(itemId, what, detail, extra = {}) {
     db.activity.push(Object.assign({ id: uid('a'), itemId, who: ME, what, when: Date.now(), detail }, extra));
@@ -157,16 +210,20 @@
     me() { return copy(person(ME)); },
     listPeople() { return copy(db.people); },
 
-    listItems({ folderId = null, view = 'mine', query = '' } = {}) {
+    // tagId: the sidebar's "browse one tag" view. tags: filter chips (recipes only; folders are hidden while filtering)
+    listItems({ folderId = null, view = 'mine', query = '', tagId = null, tags = [] } = {}) {
       const visible = db.items.filter((i) => roleOf(i));
       const q = query.trim().toLowerCase();
+      const filt = (list) => (tags.length ? list.filter((i) => i.type === 'recipe' && matchesTags(i, tags)) : list);
       let out;
       if (q) {
         out = visible.filter((i) => !isArchivedDeep(i) &&
-          (i.name.toLowerCase().includes(q) || (i.tags || []).some((t) => t.toLowerCase().includes(q))));
+          (i.name.toLowerCase().includes(q) || (i.tags || []).some((id) => (tagName(id) || '').toLowerCase().includes(q))));
       } else if (view === 'archived') {
         out = visible.filter((i) => i.status === 'archived').sort((a, b) => b.updatedAt - a.updatedAt);
-        return out.map(decorate);
+        return filt(out).map(decorate);
+      } else if (view === 'tag') {
+        out = visible.filter((i) => i.type === 'recipe' && !isArchivedDeep(i) && (i.tags || []).includes(tagId));
       } else if (folderId) {
         out = visible.filter((i) => (i.type === 'folder' ? i.parentId : i.folderId) === folderId && i.status === 'active');
       } else if (view === 'mine') {
@@ -178,12 +235,12 @@
           return !pid || !roleOf(byId(pid));
         })());
       } else if (view === 'recent') {
-        return visible.filter((i) => i.type === 'recipe' && !isArchivedDeep(i))
-          .sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 20).map(decorate);
+        return filt(visible.filter((i) => i.type === 'recipe' && !isArchivedDeep(i))
+          .sort((a, b) => b.updatedAt - a.updatedAt)).slice(0, 20).map(decorate);
       } else if (view === 'starred') {
         out = visible.filter((i) => (i.starredBy || []).includes(ME) && !isArchivedDeep(i));
       } else out = [];
-      return out.sort(sortItems).map(decorate);
+      return filt(out).sort(sortItems).map(decorate);
     },
 
     getItem(id) { const i = byId(id); return i && roleOf(i) ? decorate(i) : null; },
@@ -202,7 +259,7 @@
         id: uid('r'), type: 'recipe', name: name || 'Untitled recipe', status: 'active',
         updatedAt: now, updatedBy: ME, createdAt: now, createdBy: ME, versions: 1,
         finalWeightG: 0, kcalPerPortion: 0, costPerPortion: 0, cards: 1,
-        folderId, starredBy: [], ownerId: ME, shares: [], orgView: false, tags: [],
+        folderId, starredBy: [], ownerId: ME, shares: [], orgView: false, tags: ['t_draft'],
         thumbnailColor: ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c'][Math.floor(Math.random() * 5)],
       };
       db.items.push(r); log(r.id, 'created', null, { kind: 'recipe', folderId }); save();
@@ -253,6 +310,7 @@
         id: uid(src.type === 'folder' ? 'f' : 'r'), name: 'Copy of ' + src.name, ownerId: ME, shares: [], orgView: false,
         starredBy: [], createdAt: now, updatedAt: now, createdBy: ME, updatedBy: ME, versions: 1, status: 'active',
         builderTabId: null, // the copy gets its own Recipe Builder tab the first time it's opened
+        tags: src.type === 'recipe' ? (src.tags || []).filter((id) => (db.tags.find((t) => t.id === id) || {}).groupId !== 'g_status').concat(['t_draft']) : src.tags,
       });
       // keep it next to the original if I can write there, otherwise put it in My recipes
       const pid = src.type === 'folder' ? src.parentId : src.folderId;
@@ -328,6 +386,77 @@
       return V3_URL;
     },
 
+    /* ---------- tags (not in the original API list) ---------- */
+    isAdmin,
+    // groups with their options, plus how many recipes I can see carry each tag
+    listTagGroups() {
+      const visible = db.items.filter((i) => i.type === 'recipe' && i.status === 'active' && roleOf(i));
+      const count = (id) => visible.filter((i) => (i.tags || []).includes(id)).length;
+      const withCount = (t) => Object.assign(copy(t), { count: count(t.id) });
+      return {
+        groups: db.tagGroups.map((g) => Object.assign(copy(g), { options: db.tags.filter((t) => t.groupId === g.id).map(withCount) })),
+        free: db.tags.filter((t) => !t.groupId).map(withCount).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+      };
+    },
+    getTag(id) { return db.tags.find((x) => x.id === id) ? resolveTags([id])[0] : null; },
+    // replace one recipe's tags (a "one"-choice group like Status keeps only the last one given)
+    setTags(id, tagIds) {
+      const i = byId(id); mustEdit(i);
+      const clean = [];
+      tagIds.forEach((tid) => {
+        const t = db.tags.find((x) => x.id === tid); if (!t) return;
+        const at = clean.indexOf(tid); if (at >= 0) clean.splice(at, 1); // a repeated id counts where it last appears
+        const g = db.tagGroups.find((x) => x.id === t.groupId);
+        if (g && g.choice === 'one') for (let k = clean.length - 1; k >= 0; k--) if ((db.tags.find((x) => x.id === clean[k]) || {}).groupId === g.id) clean.splice(k, 1);
+        clean.push(tid);
+      });
+      const before = i.tags || [];
+      const added = clean.filter((t) => !before.includes(t)).map(tagName), removed = before.filter((t) => !clean.includes(t)).map(tagName);
+      if (!added.length && !removed.length) return decorate(i);
+      i.tags = clean; touch(i);
+      log(id, 'tagged', [added.length ? '+ ' + added.join(', ') : '', removed.length ? '− ' + removed.join(', ') : ''].filter(Boolean).join('  '), { added, removed });
+      save(); return decorate(i);
+    },
+    // free tags: any editor can add one. Group options: admin only
+    createTag({ name, groupId = null }) {
+      name = String(name || '').trim().slice(0, 40);
+      if (!name) throw new Error('Give the tag a name.');
+      if (groupId) mustAdmin(); else if (!store.canCreate()) throw new Error('Viewers can’t add tags.');
+      const same = db.tags.find((t) => (t.groupId || null) === groupId && t.name.toLowerCase() === name.toLowerCase());
+      if (same) return copy(same);
+      const PAL = ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c', '#5c940d', '#b08800', '#1971c2'];
+      const t = { id: uid('t'), name, groupId, color: groupId ? PAL[db.tags.filter((x) => x.groupId === groupId).length % PAL.length] : null };
+      db.tags.push(t); save(); emit({ type: 'tagcreated', tagId: t.id, groupId, name });
+      return copy(t);
+    },
+    updateTag(id, patch) {
+      mustAdmin();
+      const t = db.tags.find((x) => x.id === id); if (!t) return;
+      if (patch.name != null) t.name = String(patch.name).trim().slice(0, 40) || t.name;
+      if (patch.color !== undefined) t.color = patch.color;
+      save(); emit({ type: 'tagadmin', action: 'update', tagId: id });
+    },
+    deleteTag(id) {
+      mustAdmin();
+      db.tags = db.tags.filter((t) => t.id !== id);
+      db.items.forEach((i) => { if (i.tags) i.tags = i.tags.filter((t) => t !== id); });
+      save(); emit({ type: 'tagadmin', action: 'delete', tagId: id });
+    },
+    createTagGroup({ name, choice = 'many' }) {
+      mustAdmin();
+      name = String(name || '').trim().slice(0, 40); if (!name) throw new Error('Give the group a name.');
+      const g = { id: uid('g'), name, choice: choice === 'one' ? 'one' : 'many' };
+      db.tagGroups.push(g); save(); emit({ type: 'tagadmin', action: 'group' });
+      return copy(g);
+    },
+    renameTagGroup(id, name) { mustAdmin(); const g = db.tagGroups.find((x) => x.id === id); if (g && String(name).trim()) { g.name = String(name).trim().slice(0, 40); save(); emit({ type: 'tagadmin', action: 'group' }); } },
+    deleteTagGroup(id) {
+      mustAdmin();
+      if (id === 'g_status') throw new Error('Status is used everywhere and can’t be deleted. Rename or change its options instead.');
+      db.tags.filter((t) => t.groupId === id).forEach((t) => store.deleteTag(t.id));
+      db.tagGroups = db.tagGroups.filter((g) => g.id !== id); save(); emit({ type: 'tagadmin', action: 'group' });
+    },
+
     /* ---------- demo helpers (not in the original API list) ---------- */
     // switch who is "signed in" — stands in for real login so one browser can play several people
     switchUser(personId) {
@@ -344,7 +473,7 @@
       const seen = (db.seen && db.seen[ME]) || 0;
       const me = person(ME);
       const out = [];
-      const VERB = { edited: 'edited', renamed: 'renamed', moved: 'moved', archived: 'archived', restored: 'restored', unshared: 'changed who can see' };
+      const VERB = { edited: 'edited', renamed: 'renamed', moved: 'moved', archived: 'archived', restored: 'restored', unshared: 'changed who can see', tagged: 'tagged' };
       for (const a of db.activity) {
         if (a.who === ME || a.what === 'opened' || a.what === 'versioned') continue;
         const it = byId(a.itemId);
