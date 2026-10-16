@@ -46,7 +46,6 @@
       el('button.btn.ghost.sm', {
         onclick: () => { if (confirm('Put all demo recipes, folders and sharing back the way they started?')) NL.app.resetDemo(); },
       }, '↺ Reset demo data'),
-      el('a.btn.ghost.sm', { href: 'layouts.html', title: 'Four other ways this Workspace could be laid out' }, '◫ Layout lab'),
       el('div.faint', {}, 'Prototype · made-up data'));
 
     root.replaceChildren(newBtn, nav, tagsNav, foot);
