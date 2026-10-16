@@ -222,6 +222,8 @@
       } else if (view === 'archived') {
         out = visible.filter((i) => i.status === 'archived').sort((a, b) => b.updatedAt - a.updatedAt);
         return filt(out).map(decorate);
+      } else if (view === 'all') { // every active recipe I can see, in any folder (used by the layout lab)
+        out = visible.filter((i) => i.type === 'recipe' && !isArchivedDeep(i));
       } else if (view === 'tag') {
         out = visible.filter((i) => i.type === 'recipe' && !isArchivedDeep(i) && (i.tags || []).includes(tagId));
       } else if (folderId) {

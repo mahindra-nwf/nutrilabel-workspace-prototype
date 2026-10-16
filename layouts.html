@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Layout Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;700&family=Playfair+Display+SC:wght@400;700&display=swap">
+  <link rel="stylesheet" href="base.css?v=202610161114">
+  <link rel="stylesheet" href="workspace.css?v=202610161114">
+  <link rel="stylesheet" href="layouts.css?v=202610161114">
+  <script>try { var t = JSON.parse(localStorage.getItem('nlws.pref.theme')); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">NutriLabel <small>Layout lab</small></a>
+    <nav class="ws-seg lab-seg" id="labSeg" aria-label="Layouts"></nav>
+    <span class="spacer"></span>
+    <span class="faint lab-who" id="labWho"></span>
+    <button class="btn theme-btn" id="labTheme" title="Light / dark"></button>
+    <a class="btn" href="index.html">← Back to Workspace</a>
+  </header>
+  <section class="lab-intro" id="labIntro" aria-live="polite"></section>
+  <main class="lab-stage" id="labStage"></main>
+
+  <!-- same data layer and helpers as the Workspace, so every layout shows the real demo data -->
+  <script src="store.js?v=202610161114"></script>
+  <script src="ui.js?v=202610161114"></script>
+  <script src="tag-editor.js?v=202610161114"></script>
+  <script src="layouts.js?v=202610161114"></script>
+  <script src="layout-board.js?v=202610161114"></script>
+  <script src="layout-console.js?v=202610161114"></script>
+  <script src="layout-bento.js?v=202610161114"></script>
+  <script src="layout-menu.js?v=202610161114"></script>
+  <script>NL.lab.start();</script>
+</body>
+</html>
