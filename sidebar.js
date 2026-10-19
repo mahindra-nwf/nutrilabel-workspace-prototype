@@ -2,12 +2,12 @@
 (function () {
   const { el } = NL;
   const VIEWS = [
-    { id: 'mine', label: 'My recipes', icon: '▤' },
-    { id: 'shared', label: 'Shared with me', icon: '⇄' },
+    { id: 'mine', label: store.rootName, icon: '▤' },
+    store.isLive ? null : { id: 'shared', label: 'Shared with me', icon: '⇄' }, // Live: everyone sees everything
     { id: 'recent', label: 'Recent', icon: '◷' },
     { id: 'starred', label: 'Starred', icon: '★' },
     { id: 'archived', label: 'Archived', icon: '⌫' },
-  ];
+  ].filter(Boolean);
 
   let showAllFree = false;
   function render(state) {

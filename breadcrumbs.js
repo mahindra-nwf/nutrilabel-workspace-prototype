@@ -1,7 +1,7 @@
 /* breadcrumbs.js — "My recipes › Soups › Winter Specials" plus the page title for other views. */
 (function () {
   const { el } = NL;
-  const TITLES = { mine: 'My recipes', shared: 'Shared with me', recent: 'Recent', starred: 'Starred', archived: 'Archived' };
+  const TITLES = { mine: store.rootName, shared: 'Shared with me', recent: 'Recent', starred: 'Starred', archived: 'Archived' };
 
   function render(state) {
     const root = document.getElementById('crumbs');

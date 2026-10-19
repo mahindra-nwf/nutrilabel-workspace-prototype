@@ -64,7 +64,7 @@
         el('h4', {}, 'Who has access'),
         access,
         inherited.length ? el('p.faint.ws-det-small', {}, 'People with access to “' + inherited.map((f) => f.name).join('”, “') + '” can also see this.') : null,
-        el('button.btn.sm', { onclick: () => NL.shareDialog.open(it.id) }, canEdit ? '⇄ Manage access' : 'See who has access'),
+        store.isLive ? null : el('button.btn.sm', { onclick: () => NL.shareDialog.open(it.id) }, canEdit ? '⇄ Manage access' : 'See who has access'),
 
         el('h4', {}, 'Recent activity'),
         acts.length ? el('ul.ws-det-acts', {}, acts.map((a) => el('li', {},
@@ -89,7 +89,7 @@
   }
   function whereIs(it, me) {
     const trail = store.path(it.id).slice(0, -1);
-    const root = it.ownerId === me.id ? 'My recipes' : 'Shared with me';
+    const root = it.ownerId === me.id ? store.rootName : 'Shared with me';
     return [root, ...trail.map((f) => f.name)].join(' › ');
   }
 

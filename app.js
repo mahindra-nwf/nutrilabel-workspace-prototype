@@ -103,7 +103,7 @@
       el('span.spacer'),
       !archivedView ? el('button.btn.sm', { disabled: !editable.length, onclick: () => moveTo(editable.map((i) => i.id)) }, '⇢ Move') : null,
       !archivedView && editable.some((i) => i.type === 'recipe') ? el('button.btn.sm', { onclick: () => NL.tags.open(editable.filter((i) => i.type === 'recipe').map((i) => i.id)) }, '🏷 Tags') : null,
-      editable.length === 1 && n === 1 ? el('button.btn.sm', { onclick: () => share(editable[0].id) }, '⇄ Share') : null,
+      editable.length === 1 && n === 1 && !store.isLive ? el('button.btn.sm', { onclick: () => share(editable[0].id) }, '⇄ Share') : null,
       archivedView
         ? el('button.btn.sm', { disabled: !editable.length, onclick: () => restore(editable.map((i) => i.id)) }, '↺ Restore')
         : el('button.btn.sm', { disabled: !editable.length, onclick: () => archive(editable.map((i) => i.id)) }, '⌫ Archive'));
@@ -180,7 +180,7 @@
     ids.forEach((id) => { const it = store.getItem(id); if (it) from[id] = (it.type === 'folder' ? it.parentId : it.folderId) || null; });
     const done = ids.filter((id) => id !== folderId && from[id] !== folderId && guard(() => store.move(id, folderId)));
     if (!done.length) return;
-    const where = folderId ? store.getItem(folderId).name : 'My recipes';
+    const where = folderId ? store.getItem(folderId).name : store.rootName;
     state.selected.clear(); refresh();
     track({ type: 'move', via, count: done.length, folderId });
     NL.toast((done.length === 1 ? '“' + store.getItem(done[0]).name + '”' : done.length + ' items') + ' moved to ' + where,

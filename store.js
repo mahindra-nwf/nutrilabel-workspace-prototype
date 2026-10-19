@@ -145,9 +145,9 @@
      Folders, stars, tags and sharing stay in this browser for now, keyed by the recipe id.
      shortcut: synchronous requests keep the screens' simple synchronous store calls; fine for a prototype. */
   const API = '/api/workspace/recipes';
-  function server(method, path, body) {
+  function server(method, path, body, url = API + path) {
     const x = new XMLHttpRequest();
-    x.open(method, API + path, false);
+    x.open(method, url, false);
     x.setRequestHeader('Content-Type', 'application/json');
     x.send(body ? JSON.stringify(body) : null);
     let data = {};
@@ -156,23 +156,37 @@
     if (x.status < 200 || x.status >= 300) throw new Error(data.error || 'The server did not accept that. Try again.');
     return data;
   }
-  // bring the list in line with the database: new recipes appear, renamed ones update, deleted ones go
+  // folders, stars and tags: one action at a time ({ op: 'createFolder', ... }, see the app's actionSchema)
+  const act = (body) => server('POST', '', body, '/api/workspace');
+  const notLive = (what) => { if (LIVE) throw new Error(what); };
+  // the whole Live workspace from the database: people, folders, recipes (with folder and tags), my stars, tags.
+  // Runs on open and whenever the tab comes back, so recipes made in the Recipe Builder simply appear.
+  const PAL = ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c', '#5c940d', '#b08800', '#1971c2'];
+  const colorOf = (id) => PAL[parseInt(String(id).replace(/-/g, '').slice(0, 6), 16) % PAL.length];
+  const initials = (name) => String(name).replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
   async function sync() {
-    let list;
+    let s;
     try {
-      const res = await fetch(API, { cache: 'no-store' });
+      const res = await fetch('/api/workspace', { cache: 'no-store' });
+      if (res.status === 401) { location.href = '/login?next=' + encodeURIComponent(location.pathname); return; }
       if (!res.ok) return;
-      list = (await res.json()).recipes;
+      s = await res.json();
     } catch (e) { return; } // offline: keep what we have
-    const seen = new Set();
-    list.forEach((r) => {
-      seen.add(r.id);
-      let i = byId(r.id);
-      if (!i) { i = recipeItem(r.id, r.name, null); db.items.push(i); }
-      Object.assign(i, { name: r.name, status: r.status, versions: Math.max(1, r.revision - 1),
-        createdAt: Date.parse(r.createdAt), updatedAt: Date.parse(r.updatedAt), updatedByName: r.updatedBy });
-    });
-    db.items = db.items.filter((i) => i.type !== 'recipe' || seen.has(i.id));
+    ME = s.me.id; db.meId = ME;
+    db.people = s.people.map((p, k) => ({ id: p.id, name: p.name, email: p.email, role: p.role, title: p.role, initials: initials(p.name), color: PAL[k % PAL.length] }));
+    if (!person(ME)) db.people.push({ id: ME, name: 'You', email: '', role: s.me.role, title: s.me.role, initials: 'Y', color: PAL[0] });
+    const stars = new Set(s.stars), starred = (id) => (stars.has(id) ? [ME] : []);
+    const ms = (t) => Date.parse(t);
+    db.items = [
+      ...s.folders.map((f) => ({ id: f.id, type: 'folder', name: f.name, parentId: f.parentId, ownerId: ME, shares: [], orgView: true,
+        status: f.status, createdAt: ms(f.createdAt), updatedAt: ms(f.updatedAt), updatedBy: f.updatedBy, starredBy: starred(f.id) })),
+      ...s.recipes.map((r) => Object.assign(recipeItem(r.id, r.name, r.folderId), {
+        status: r.status, versions: Math.max(1, r.revision - 1), createdAt: ms(r.createdAt), updatedAt: ms(r.updatedAt),
+        createdBy: r.createdBy, updatedBy: r.updatedBy, tags: r.tagIds, starredBy: starred(r.id), orgView: true, thumbnailColor: colorOf(r.id),
+      })),
+    ];
+    db.tagGroups = s.tagGroups;
+    db.tags = s.tags;
     save();
     emit({ type: 'sync' });
   }
@@ -210,6 +224,8 @@
   }
   // "owner" | "edit" | "view" | null — sharing a folder shares everything inside it
   function roleOf(item, pid = ME) {
+    // Live: everything belongs to the organization; editors and admins may change it, viewers only look
+    if (LIVE) return (person(pid) || {}).role === 'viewer' ? 'view' : 'owner';
     let best = null;
     for (const it of [item, ...ancestors(item)]) {
       if (it.ownerId === pid) return 'owner';
@@ -270,6 +286,8 @@
   const store = {
     /** Live (clean, no demo controls) or Playground (demo data); see LIVE at the top */
     isLive: LIVE,
+    /** name of the top level: in Live it is the whole organization's drive */
+    rootName: LIVE ? 'All recipes' : 'My recipes',
     /** Live: reload recipes from the database (on open and whenever the tab comes back into view) */
     sync,
     orgName: ORG,
@@ -332,14 +350,15 @@
       mustCreate();
       if (parentId) mustEdit(byId(parentId));
       const now = Date.now();
-      const f = { id: uid('f'), type: 'folder', name: name || 'New folder', parentId, ownerId: ME, shares: [], orgView: false, status: 'active', updatedAt: now, createdAt: now };
+      const fid = LIVE ? act({ op: 'createFolder', name: name || 'New folder', parentId }).id : uid('f');
+      const f = { id: fid, type: 'folder', name: name || 'New folder', parentId, ownerId: ME, shares: [], orgView: LIVE, status: 'active', updatedAt: now, createdAt: now, starredBy: [] };
       db.items.push(f); log(f.id, 'created', null, { kind: 'folder', folderId: parentId }); save();
       return decorate(f);
     },
 
     rename(id, name) {
       const i = byId(id); mustEdit(i);
-      if (LIVE && i.type === 'recipe') server('PATCH', '/' + id, { name });
+      if (LIVE) { if (i.type === 'recipe') server('PATCH', '/' + id, { name }); else act({ op: 'updateFolder', id, name }); }
       const old = i.name; i.name = name; touch(i); log(id, 'renamed', old + ' → ' + name); save();
       return decorate(i);
     },
@@ -350,6 +369,7 @@
         const f = byId(folderId); mustEdit(f);
         if (i.type === 'folder' && (folderId === id || ancestors(f).some((a) => a.id === id))) throw new Error('A folder can’t go inside itself.');
       }
+      if (LIVE) act(i.type === 'folder' ? { op: 'updateFolder', id, parentId: folderId || null } : { op: 'moveRecipe', recipeId: id, folderId: folderId || null });
       if (i.type === 'folder') i.parentId = folderId; else i.folderId = folderId;
       touch(i); log(id, 'moved', folderId ? byId(folderId).name : 'My recipes', { folderId }); save();
       return decorate(i);
@@ -357,18 +377,19 @@
 
     star(id, on) {
       const i = byId(id);
+      if (LIVE) act({ op: 'star', itemId: id, on: !!on });
       i.starredBy = (i.starredBy || []).filter((p) => p !== ME);
       if (on) i.starredBy.push(ME);
       save(); emit({ type: 'star', itemId: id, on: !!on }); return decorate(i);
     },
 
-    archive(id) { const i = byId(id); mustEdit(i); if (LIVE && i.type === 'recipe') server('PATCH', '/' + id, { status: 'archived' }); i.status = 'archived'; touch(i); log(id, 'archived'); save(); return decorate(i); },
-    restore(id) { const i = byId(id); mustEdit(i); if (LIVE && i.type === 'recipe') server('PATCH', '/' + id, { status: 'active' }); i.status = 'active'; touch(i); log(id, 'restored'); save(); return decorate(i); },
+    archive(id) { const i = byId(id); mustEdit(i); if (LIVE) { if (i.type === 'recipe') server('PATCH', '/' + id, { status: 'archived' }); else act({ op: 'updateFolder', id, status: 'archived' }); } i.status = 'archived'; touch(i); log(id, 'archived'); save(); return decorate(i); },
+    restore(id) { const i = byId(id); mustEdit(i); if (LIVE) { if (i.type === 'recipe') server('PATCH', '/' + id, { status: 'active' }); else act({ op: 'updateFolder', id, status: 'active' }); } i.status = 'active'; touch(i); log(id, 'restored'); save(); return decorate(i); },
 
     duplicate(id) {
       mustCreate();
       const src = byId(id);
-      if (LIVE && src.type === 'recipe') throw new Error('In Live, make a copy inside the Recipe Builder for now.');
+      notLive(src.type === 'recipe' ? 'In Live, make a copy inside the Recipe Builder for now.' : 'Copying folders is not available in Live yet.');
       const now = Date.now();
       const d = Object.assign(copy(src), {
         id: uid(src.type === 'folder' ? 'f' : 'r'), name: 'Copy of ' + src.name, ownerId: ME, shares: [], orgView: false,
@@ -389,6 +410,7 @@
       return i.shares.map((s) => ({ person: copy(person(s.personId)), role: s.role }));
     },
     share(id, personId, role) {
+      notLive('Everyone at ' + ORG + ' already sees every recipe.');
       const i = byId(id); mustEdit(i);
       if (role === 'edit' && person(personId).role === 'viewer') throw new Error(person(personId).name + ' is a viewer, so can only be given “Can view”.');
       const s = i.shares.find((x) => x.personId === personId);
@@ -397,12 +419,13 @@
       log(id, 'shared', person(personId).name + ' (' + (role === 'edit' ? 'can edit' : 'can view') + ')', { target: personId, role, changed }); save();
     },
     unshare(id, personId) {
+      notLive('Everyone at ' + ORG + ' already sees every recipe.');
       const i = byId(id); mustEdit(i);
       i.shares = i.shares.filter((x) => x.personId !== personId);
       log(id, 'unshared', person(personId).name, { target: personId }); save();
     },
     // "Everyone at Northwest Frozen can view" (helper; not in the original API list)
-    setOrgView(id, on) { const i = byId(id); mustEdit(i); i.orgView = !!on; log(id, 'shared', on ? 'everyone at ' + ORG : 'no longer org-wide', { org: !!on }); save(); },
+    setOrgView(id, on) { notLive('Everyone at ' + ORG + ' already sees every recipe.'); const i = byId(id); mustEdit(i); i.orgView = !!on; log(id, 'shared', on ? 'everyone at ' + ORG : 'no longer org-wide', { org: !!on }); save(); },
 
     activity(id) {
       return db.activity.filter((a) => a.itemId === id).sort((a, b) => b.when - a.when)
@@ -479,6 +502,7 @@
       const before = i.tags || [];
       const added = clean.filter((t) => !before.includes(t)).map(tagName), removed = before.filter((t) => !clean.includes(t)).map(tagName);
       if (!added.length && !removed.length) return decorate(i);
+      if (LIVE) act({ op: 'setRecipeTags', recipeId: id, tagIds: clean });
       i.tags = clean; touch(i);
       log(id, 'tagged', [added.length ? '+ ' + added.join(', ') : '', removed.length ? '− ' + removed.join(', ') : ''].filter(Boolean).join('  '), { added, removed });
       save(); return decorate(i);
@@ -490,20 +514,22 @@
       if (groupId) mustAdmin(); else if (!store.canCreate()) throw new Error('Viewers can’t add tags.');
       const same = db.tags.find((t) => (t.groupId || null) === groupId && t.name.toLowerCase() === name.toLowerCase());
       if (same) return copy(same);
-      const PAL = ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c', '#5c940d', '#b08800', '#1971c2'];
-      const t = { id: uid('t'), name, groupId, color: groupId ? PAL[db.tags.filter((x) => x.groupId === groupId).length % PAL.length] : null };
+      const color = groupId ? PAL[db.tags.filter((x) => x.groupId === groupId).length % PAL.length] : null;
+      const t = LIVE ? act({ op: 'createTag', name, groupId, color }).tag : { id: uid('t'), name, groupId, color };
       db.tags.push(t); save(); emit({ type: 'tagcreated', tagId: t.id, groupId, name });
       return copy(t);
     },
     updateTag(id, patch) {
       mustAdmin();
       const t = db.tags.find((x) => x.id === id); if (!t) return;
+      if (LIVE) act(Object.assign({ op: 'updateTag', id }, patch.name != null ? { name: String(patch.name).trim().slice(0, 40) || t.name } : {}, patch.color !== undefined ? { color: patch.color } : {}));
       if (patch.name != null) t.name = String(patch.name).trim().slice(0, 40) || t.name;
       if (patch.color !== undefined) t.color = patch.color;
       save(); emit({ type: 'tagadmin', action: 'update', tagId: id });
     },
     deleteTag(id) {
       mustAdmin();
+      if (LIVE) act({ op: 'deleteTag', id });
       db.tags = db.tags.filter((t) => t.id !== id);
       db.items.forEach((i) => { if (i.tags) i.tags = i.tags.filter((t) => t !== id); });
       save(); emit({ type: 'tagadmin', action: 'delete', tagId: id });
@@ -511,15 +537,20 @@
     createTagGroup({ name, choice = 'many' }) {
       mustAdmin();
       name = String(name || '').trim().slice(0, 40); if (!name) throw new Error('Give the group a name.');
-      const g = { id: uid('g'), name, choice: choice === 'one' ? 'one' : 'many' };
+      const g = { id: LIVE ? act({ op: 'createTagGroup', name, choice: choice === 'one' ? 'one' : 'many' }).id : uid('g'), name, choice: choice === 'one' ? 'one' : 'many' };
       db.tagGroups.push(g); save(); emit({ type: 'tagadmin', action: 'group' });
       return copy(g);
     },
-    renameTagGroup(id, name) { mustAdmin(); const g = db.tagGroups.find((x) => x.id === id); if (g && String(name).trim()) { g.name = String(name).trim().slice(0, 40); save(); emit({ type: 'tagadmin', action: 'group' }); } },
+    renameTagGroup(id, name) { mustAdmin(); const g = db.tagGroups.find((x) => x.id === id); if (g && String(name).trim()) { if (LIVE) act({ op: 'updateTagGroup', id, name: String(name).trim().slice(0, 40) }); g.name = String(name).trim().slice(0, 40); save(); emit({ type: 'tagadmin', action: 'group' }); } },
     deleteTagGroup(id) {
       mustAdmin();
-      if (id === 'g_status') throw new Error('Status is used everywhere and can’t be deleted. Rename or change its options instead.');
-      db.tags.filter((t) => t.groupId === id).forEach((t) => store.deleteTag(t.id));
+      if (id === 'g_status' || (LIVE && (db.tagGroups.find((g) => g.id === id) || {}).name === 'Status')) throw new Error('Status is used everywhere and can’t be deleted. Rename or change its options instead.');
+      if (LIVE) {
+        act({ op: 'deleteTagGroup', id }); // the database removes its options and their use on recipes
+        const gone = db.tags.filter((t) => t.groupId === id).map((t) => t.id);
+        db.tags = db.tags.filter((t) => t.groupId !== id);
+        db.items.forEach((i) => { if (i.tags) i.tags = i.tags.filter((t) => !gone.includes(t)); });
+      } else db.tags.filter((t) => t.groupId === id).forEach((t) => store.deleteTag(t.id));
       db.tagGroups = db.tagGroups.filter((g) => g.id !== id); save(); emit({ type: 'tagadmin', action: 'group' });
     },
 
