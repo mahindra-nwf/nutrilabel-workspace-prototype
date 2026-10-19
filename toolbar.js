@@ -15,7 +15,7 @@
       });
       bar.replaceChildren(
         el('a.btn', { href: location.pathname.startsWith('/workspace/') ? '/' : '../nutrilabel-home-prototype/', title: 'All apps' }, '← Home'),
-        el('a.brand', { href: '#/mine' }, 'NutriLabel ', el('small', {}, 'Workspace')),
+        el('a.brand', { href: '#/mine' }, 'Northwest Frozen ', el('small', {}, 'Workspace')),
         el('label.ws-search', {}, el('span.ic', {}, '⌕'), search),
         el('span.spacer'),
         el('div.ws-seg', { id: 'layoutSeg', role: 'group', 'aria-label': 'Layout' },
