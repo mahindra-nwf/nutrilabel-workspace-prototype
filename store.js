@@ -3,7 +3,11 @@
    Screens call these and get plain copies back; they never mutate store data directly.
    All data is made up. */
 (function () {
-  const KEY = 'nlws.v4'; // v4: tag groups + tags (recipe.tags holds tag ids)
+  // Live vs Playground: inside the NutriLabel app (/workspace/) the Home page toggle sets the nl_mode cookie.
+  // Playground (and this site on its own) = the demo with made-up people and recipes. Live = the same screens, clean:
+  // no sample data and no demo controls, kept under its own key so the two never mix.
+  const LIVE = location.pathname.startsWith('/workspace/') && !/(?:^|; )nl_mode=playground(?:;|$)/.test(document.cookie);
+  const KEY = LIVE ? 'nlws.live.v1' : 'nlws.v4'; // v4: tag groups + tags (recipe.tags holds tag ids)
   let ME = 'u1'; // who is "signed in"; the demo can switch person (store.switchUser)
   const ORG = 'Northwest Frozen';
   const H = 3600e3, D = 24 * H;
@@ -28,6 +32,12 @@
   /* ---------- seed ---------- */
   function seed() {
     const now = Date.now();
+    if (LIVE) {
+      // clean start: just you, no recipes, folders or activity; the tag groups are setup, not sample data
+      const { tagGroups, tags } = tagSetup();
+      return { people: [{ id: 'u1', name: 'You', email: '', role: 'admin', title: ORG, initials: 'Y', color: '#2f6fed' }],
+        items: [], activity: [], tagGroups, tags, meId: 'u1', seen: { u1: now } };
+    }
     const people = [
       { id: 'u1', name: 'Jordan Lee', email: 'jordan@example.com', role: 'admin', title: 'Head of R&D', initials: 'JL', color: '#2f6fed' },
       { id: 'u2', name: 'Ana Ruiz', email: 'ana@example.com', role: 'editor', title: 'Sous chef', initials: 'AR', color: '#e8590c' },
@@ -101,6 +111,88 @@
     });
     // Jordan last checked notifications 6 h ago, so a couple of teammates' edits show as new
     // ---- tags: admin-managed groups (Status, Diet, Channel) + free tags anyone can add
+    const { tagGroups, tags } = tagSetup();
+    const free = (name) => {
+      let t = tags.find((x) => !x.groupId && x.name.toLowerCase() === name.toLowerCase());
+      if (!t) { t = { id: 'tf_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, groupId: null, color: null }; tags.push(t); }
+      return t.id;
+    };
+    const STATUS = ['t_approved', 't_approved', 't_trial', 't_draft'];
+    items.filter((i) => i.type === 'recipe').forEach((r, i) => {
+      const ids = [r.status === 'archived' ? 't_disc' : STATUS[i % STATUS.length]];
+      r.tags.forEach((t) => ids.push(t === 'vegan' ? 't_vegan' : t === 'vegetarian' ? 't_vegetarian' : free(t)));
+      if (r.tags.includes('vegan')) ids.push('t_df');
+      if (r.folderId === 'f4' || r.tags.includes('frozen')) ids.push('t_retail');
+      if (r.folderId === 'f2') ids.push('t_foodservice');
+      if (i % 7 === 3) ids.push('t_airline');
+      r.tags = [...new Set(ids)];
+    });
+    return { people, items, activity, tagGroups, tags, meId: 'u1', seen: { u1: now - 6 * H } };
+  }
+  function recipeItem(id, name, folderId) {
+    const now = Date.now();
+    return {
+      id, type: 'recipe', name, status: 'active',
+      updatedAt: now, updatedBy: ME, createdAt: now, createdBy: ME, versions: 1,
+      finalWeightG: 0, kcalPerPortion: 0, costPerPortion: 0, cards: 1,
+      folderId, starredBy: [], ownerId: ME, shares: [], orgView: false, tags: ['t_draft'],
+      thumbnailColor: ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c'][Math.floor(Math.random() * 5)],
+    };
+  }
+
+  /* ---------- Live: recipes live in the database (like files in a drive) ----------
+     The app's /api/workspace/recipes lists, creates, renames, archives and restores them as the signed-in person.
+     Folders, stars, tags and sharing stay in this browser for now, keyed by the recipe id.
+     shortcut: synchronous requests keep the screens' simple synchronous store calls; fine for a prototype. */
+  const API = '/api/workspace/recipes';
+  function server(method, path, body, url = API + path) {
+    const x = new XMLHttpRequest();
+    x.open(method, url, false);
+    x.setRequestHeader('Content-Type', 'application/json');
+    x.send(body ? JSON.stringify(body) : null);
+    let data = {};
+    try { data = JSON.parse(x.responseText || '{}'); } catch (e) { /* not JSON */ }
+    if (x.status === 401) { location.href = '/login?next=' + encodeURIComponent(location.pathname); throw new Error('Please sign in again.'); }
+    if (x.status < 200 || x.status >= 300) throw new Error(data.error || 'The server did not accept that. Try again.');
+    return data;
+  }
+  // folders, stars and tags: one action at a time ({ op: 'createFolder', ... }, see the app's actionSchema)
+  const act = (body) => server('POST', '', body, '/api/workspace');
+  const notLive = (what) => { if (LIVE) throw new Error(what); };
+  // the whole Live workspace from the database: people, folders, recipes (with folder and tags), my stars, tags.
+  // Runs on open and whenever the tab comes back, so recipes made in the Recipe Builder simply appear.
+  const PAL = ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c', '#5c940d', '#b08800', '#1971c2'];
+  const colorOf = (id) => PAL[parseInt(String(id).replace(/-/g, '').slice(0, 6), 16) % PAL.length];
+  const initials = (name) => String(name).replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+  async function sync() {
+    let s;
+    try {
+      const res = await fetch('/api/workspace', { cache: 'no-store' });
+      if (res.status === 401) { location.href = '/login?next=' + encodeURIComponent(location.pathname); return; }
+      if (!res.ok) return;
+      s = await res.json();
+    } catch (e) { return; } // offline: keep what we have
+    ME = s.me.id; db.meId = ME;
+    db.people = s.people.map((p, k) => ({ id: p.id, name: p.name, email: p.email, role: p.role, title: p.role, initials: initials(p.name), color: PAL[k % PAL.length] }));
+    if (!person(ME)) db.people.push({ id: ME, name: 'You', email: '', role: s.me.role, title: s.me.role, initials: 'Y', color: PAL[0] });
+    const stars = new Set(s.stars), starred = (id) => (stars.has(id) ? [ME] : []);
+    const ms = (t) => Date.parse(t);
+    db.items = [
+      ...s.folders.map((f) => ({ id: f.id, type: 'folder', name: f.name, parentId: f.parentId, ownerId: ME, shares: [], orgView: true,
+        status: f.status, createdAt: ms(f.createdAt), updatedAt: ms(f.updatedAt), updatedBy: f.updatedBy, starredBy: starred(f.id) })),
+      ...s.recipes.map((r) => Object.assign(recipeItem(r.id, r.name, r.folderId), {
+        status: r.status, versions: Math.max(1, r.revision - 1), createdAt: ms(r.createdAt), updatedAt: ms(r.updatedAt),
+        createdBy: r.createdBy, updatedBy: r.updatedBy, tags: r.tagIds, starredBy: starred(r.id), orgView: true, thumbnailColor: colorOf(r.id),
+      })),
+    ];
+    db.tagGroups = s.tagGroups;
+    db.tags = s.tags;
+    save();
+    emit({ type: 'sync' });
+  }
+
+  // tag groups every organization starts with (setup, not sample data)
+  function tagSetup() {
     const tagGroups = [
       { id: 'g_status', name: 'Status', choice: 'one' },
       { id: 'g_diet', name: 'Diet', choice: 'many' },
@@ -119,22 +211,7 @@
       { id: 't_foodservice', name: 'Food service', groupId: 'g_channel', color: '#0c8599' },
       { id: 't_airline', name: 'Airline', groupId: 'g_channel', color: '#c2255c' },
     ];
-    const free = (name) => {
-      let t = tags.find((x) => !x.groupId && x.name.toLowerCase() === name.toLowerCase());
-      if (!t) { t = { id: 'tf_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, groupId: null, color: null }; tags.push(t); }
-      return t.id;
-    };
-    const STATUS = ['t_approved', 't_approved', 't_trial', 't_draft'];
-    items.filter((i) => i.type === 'recipe').forEach((r, i) => {
-      const ids = [r.status === 'archived' ? 't_disc' : STATUS[i % STATUS.length]];
-      r.tags.forEach((t) => ids.push(t === 'vegan' ? 't_vegan' : t === 'vegetarian' ? 't_vegetarian' : free(t)));
-      if (r.tags.includes('vegan')) ids.push('t_df');
-      if (r.folderId === 'f4' || r.tags.includes('frozen')) ids.push('t_retail');
-      if (r.folderId === 'f2') ids.push('t_foodservice');
-      if (i % 7 === 3) ids.push('t_airline');
-      r.tags = [...new Set(ids)];
-    });
-    return { people, items, activity, tagGroups, tags, meId: 'u1', seen: { u1: now - 6 * H } };
+    return { tagGroups, tags };
   }
   function person2(people, id) { const p = people.find((x) => x.id === id); return p ? p.name : ''; }
 
@@ -147,6 +224,8 @@
   }
   // "owner" | "edit" | "view" | null — sharing a folder shares everything inside it
   function roleOf(item, pid = ME) {
+    // Live: everything belongs to the organization; editors and admins may change it, viewers only look
+    if (LIVE) return (person(pid) || {}).role === 'viewer' ? 'view' : 'owner';
     let best = null;
     for (const it of [item, ...ancestors(item)]) {
       if (it.ownerId === pid) return 'owner';
@@ -205,6 +284,12 @@
 
   /* ---------- public API (future database calls) ---------- */
   const store = {
+    /** Live (clean, no demo controls) or Playground (demo data); see LIVE at the top */
+    isLive: LIVE,
+    /** name of the top level: in Live it is the whole organization's drive */
+    rootName: LIVE ? 'All recipes' : 'My recipes',
+    /** Live: reload recipes from the database (on open and whenever the tab comes back into view) */
+    sync,
     orgName: ORG,
 
     me() { return copy(person(ME)); },
@@ -254,14 +339,9 @@
     createRecipe({ name, folderId = null }) {
       mustCreate();
       if (folderId) mustEdit(byId(folderId));
-      const now = Date.now();
-      const r = {
-        id: uid('r'), type: 'recipe', name: name || 'Untitled recipe', status: 'active',
-        updatedAt: now, updatedBy: ME, createdAt: now, createdBy: ME, versions: 1,
-        finalWeightG: 0, kcalPerPortion: 0, costPerPortion: 0, cards: 1,
-        folderId, starredBy: [], ownerId: ME, shares: [], orgView: false, tags: ['t_draft'],
-        thumbnailColor: ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c'][Math.floor(Math.random() * 5)],
-      };
+      // Live: the recipe is created in the database first (it opens in the Recipe Builder), then shown here
+      const id = LIVE ? server('POST', '', { name: name || 'Untitled recipe' }).id : uid('r');
+      const r = recipeItem(id, name || 'Untitled recipe', folderId);
       db.items.push(r); log(r.id, 'created', null, { kind: 'recipe', folderId }); save();
       return decorate(r);
     },
@@ -270,13 +350,15 @@
       mustCreate();
       if (parentId) mustEdit(byId(parentId));
       const now = Date.now();
-      const f = { id: uid('f'), type: 'folder', name: name || 'New folder', parentId, ownerId: ME, shares: [], orgView: false, status: 'active', updatedAt: now, createdAt: now };
+      const fid = LIVE ? act({ op: 'createFolder', name: name || 'New folder', parentId }).id : uid('f');
+      const f = { id: fid, type: 'folder', name: name || 'New folder', parentId, ownerId: ME, shares: [], orgView: LIVE, status: 'active', updatedAt: now, createdAt: now, starredBy: [] };
       db.items.push(f); log(f.id, 'created', null, { kind: 'folder', folderId: parentId }); save();
       return decorate(f);
     },
 
     rename(id, name) {
       const i = byId(id); mustEdit(i);
+      if (LIVE) { if (i.type === 'recipe') server('PATCH', '/' + id, { name }); else act({ op: 'updateFolder', id, name }); }
       const old = i.name; i.name = name; touch(i); log(id, 'renamed', old + ' → ' + name); save();
       return decorate(i);
     },
@@ -287,6 +369,7 @@
         const f = byId(folderId); mustEdit(f);
         if (i.type === 'folder' && (folderId === id || ancestors(f).some((a) => a.id === id))) throw new Error('A folder can’t go inside itself.');
       }
+      if (LIVE) act(i.type === 'folder' ? { op: 'updateFolder', id, parentId: folderId || null } : { op: 'moveRecipe', recipeId: id, folderId: folderId || null });
       if (i.type === 'folder') i.parentId = folderId; else i.folderId = folderId;
       touch(i); log(id, 'moved', folderId ? byId(folderId).name : 'My recipes', { folderId }); save();
       return decorate(i);
@@ -294,17 +377,19 @@
 
     star(id, on) {
       const i = byId(id);
+      if (LIVE) act({ op: 'star', itemId: id, on: !!on });
       i.starredBy = (i.starredBy || []).filter((p) => p !== ME);
       if (on) i.starredBy.push(ME);
       save(); emit({ type: 'star', itemId: id, on: !!on }); return decorate(i);
     },
 
-    archive(id) { const i = byId(id); mustEdit(i); i.status = 'archived'; touch(i); log(id, 'archived'); save(); return decorate(i); },
-    restore(id) { const i = byId(id); mustEdit(i); i.status = 'active'; touch(i); log(id, 'restored'); save(); return decorate(i); },
+    archive(id) { const i = byId(id); mustEdit(i); if (LIVE) { if (i.type === 'recipe') server('PATCH', '/' + id, { status: 'archived' }); else act({ op: 'updateFolder', id, status: 'archived' }); } i.status = 'archived'; touch(i); log(id, 'archived'); save(); return decorate(i); },
+    restore(id) { const i = byId(id); mustEdit(i); if (LIVE) { if (i.type === 'recipe') server('PATCH', '/' + id, { status: 'active' }); else act({ op: 'updateFolder', id, status: 'active' }); } i.status = 'active'; touch(i); log(id, 'restored'); save(); return decorate(i); },
 
     duplicate(id) {
       mustCreate();
       const src = byId(id);
+      notLive(src.type === 'recipe' ? 'In Live, make a copy inside the Recipe Builder for now.' : 'Copying folders is not available in Live yet.');
       const now = Date.now();
       const d = Object.assign(copy(src), {
         id: uid(src.type === 'folder' ? 'f' : 'r'), name: 'Copy of ' + src.name, ownerId: ME, shares: [], orgView: false,
@@ -325,6 +410,7 @@
       return i.shares.map((s) => ({ person: copy(person(s.personId)), role: s.role }));
     },
     share(id, personId, role) {
+      notLive('Everyone at ' + ORG + ' already sees every recipe.');
       const i = byId(id); mustEdit(i);
       if (role === 'edit' && person(personId).role === 'viewer') throw new Error(person(personId).name + ' is a viewer, so can only be given “Can view”.');
       const s = i.shares.find((x) => x.personId === personId);
@@ -333,12 +419,13 @@
       log(id, 'shared', person(personId).name + ' (' + (role === 'edit' ? 'can edit' : 'can view') + ')', { target: personId, role, changed }); save();
     },
     unshare(id, personId) {
+      notLive('Everyone at ' + ORG + ' already sees every recipe.');
       const i = byId(id); mustEdit(i);
       i.shares = i.shares.filter((x) => x.personId !== personId);
       log(id, 'unshared', person(personId).name, { target: personId }); save();
     },
     // "Everyone at Northwest Frozen can view" (helper; not in the original API list)
-    setOrgView(id, on) { const i = byId(id); mustEdit(i); i.orgView = !!on; log(id, 'shared', on ? 'everyone at ' + ORG : 'no longer org-wide', { org: !!on }); save(); },
+    setOrgView(id, on) { notLive('Everyone at ' + ORG + ' already sees every recipe.'); const i = byId(id); mustEdit(i); i.orgView = !!on; log(id, 'shared', on ? 'everyone at ' + ORG : 'no longer org-wide', { org: !!on }); save(); },
 
     activity(id) {
       return db.activity.filter((a) => a.itemId === id).sort((a, b) => b.when - a.when)
@@ -353,6 +440,8 @@
     async openInBuilder(id) {
       const item = byId(id);
       if (!item || item.type !== 'recipe') return null;
+      if (LIVE) return '/recipes/' + encodeURIComponent(id); // the real recipe in the Recipe Builder
+      if (NL_HOSTED) return null; // Playground inside the app: there is no v3 next door → placeholder page
       try {
         const ok = await fetch(V3_URL + 'index.html', { method: 'HEAD', cache: 'no-store' });
         if (!ok.ok) return null;
@@ -413,6 +502,7 @@
       const before = i.tags || [];
       const added = clean.filter((t) => !before.includes(t)).map(tagName), removed = before.filter((t) => !clean.includes(t)).map(tagName);
       if (!added.length && !removed.length) return decorate(i);
+      if (LIVE) act({ op: 'setRecipeTags', recipeId: id, tagIds: clean });
       i.tags = clean; touch(i);
       log(id, 'tagged', [added.length ? '+ ' + added.join(', ') : '', removed.length ? '− ' + removed.join(', ') : ''].filter(Boolean).join('  '), { added, removed });
       save(); return decorate(i);
@@ -424,20 +514,22 @@
       if (groupId) mustAdmin(); else if (!store.canCreate()) throw new Error('Viewers can’t add tags.');
       const same = db.tags.find((t) => (t.groupId || null) === groupId && t.name.toLowerCase() === name.toLowerCase());
       if (same) return copy(same);
-      const PAL = ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c', '#5c940d', '#b08800', '#1971c2'];
-      const t = { id: uid('t'), name, groupId, color: groupId ? PAL[db.tags.filter((x) => x.groupId === groupId).length % PAL.length] : null };
+      const color = groupId ? PAL[db.tags.filter((x) => x.groupId === groupId).length % PAL.length] : null;
+      const t = LIVE ? act({ op: 'createTag', name, groupId, color }).tag : { id: uid('t'), name, groupId, color };
       db.tags.push(t); save(); emit({ type: 'tagcreated', tagId: t.id, groupId, name });
       return copy(t);
     },
     updateTag(id, patch) {
       mustAdmin();
       const t = db.tags.find((x) => x.id === id); if (!t) return;
+      if (LIVE) act(Object.assign({ op: 'updateTag', id }, patch.name != null ? { name: String(patch.name).trim().slice(0, 40) || t.name } : {}, patch.color !== undefined ? { color: patch.color } : {}));
       if (patch.name != null) t.name = String(patch.name).trim().slice(0, 40) || t.name;
       if (patch.color !== undefined) t.color = patch.color;
       save(); emit({ type: 'tagadmin', action: 'update', tagId: id });
     },
     deleteTag(id) {
       mustAdmin();
+      if (LIVE) act({ op: 'deleteTag', id });
       db.tags = db.tags.filter((t) => t.id !== id);
       db.items.forEach((i) => { if (i.tags) i.tags = i.tags.filter((t) => t !== id); });
       save(); emit({ type: 'tagadmin', action: 'delete', tagId: id });
@@ -445,15 +537,20 @@
     createTagGroup({ name, choice = 'many' }) {
       mustAdmin();
       name = String(name || '').trim().slice(0, 40); if (!name) throw new Error('Give the group a name.');
-      const g = { id: uid('g'), name, choice: choice === 'one' ? 'one' : 'many' };
+      const g = { id: LIVE ? act({ op: 'createTagGroup', name, choice: choice === 'one' ? 'one' : 'many' }).id : uid('g'), name, choice: choice === 'one' ? 'one' : 'many' };
       db.tagGroups.push(g); save(); emit({ type: 'tagadmin', action: 'group' });
       return copy(g);
     },
-    renameTagGroup(id, name) { mustAdmin(); const g = db.tagGroups.find((x) => x.id === id); if (g && String(name).trim()) { g.name = String(name).trim().slice(0, 40); save(); emit({ type: 'tagadmin', action: 'group' }); } },
+    renameTagGroup(id, name) { mustAdmin(); const g = db.tagGroups.find((x) => x.id === id); if (g && String(name).trim()) { if (LIVE) act({ op: 'updateTagGroup', id, name: String(name).trim().slice(0, 40) }); g.name = String(name).trim().slice(0, 40); save(); emit({ type: 'tagadmin', action: 'group' }); } },
     deleteTagGroup(id) {
       mustAdmin();
-      if (id === 'g_status') throw new Error('Status is used everywhere and can’t be deleted. Rename or change its options instead.');
-      db.tags.filter((t) => t.groupId === id).forEach((t) => store.deleteTag(t.id));
+      if (id === 'g_status' || (LIVE && (db.tagGroups.find((g) => g.id === id) || {}).name === 'Status')) throw new Error('Status is used everywhere and can’t be deleted. Rename or change its options instead.');
+      if (LIVE) {
+        act({ op: 'deleteTagGroup', id }); // the database removes its options and their use on recipes
+        const gone = db.tags.filter((t) => t.groupId === id).map((t) => t.id);
+        db.tags = db.tags.filter((t) => t.groupId !== id);
+        db.items.forEach((i) => { if (i.tags) i.tags = i.tags.filter((t) => !gone.includes(t)); });
+      } else db.tags.filter((t) => t.groupId === id).forEach((t) => store.deleteTag(t.id));
       db.tagGroups = db.tagGroups.filter((g) => g.id !== id); save(); emit({ type: 'tagadmin', action: 'group' });
     },
 
@@ -508,6 +605,8 @@
 
   /* ---------- v3 Recipe Builder ---------- */
   const V3_URL = '../nutrilabel-recipe-layout-v3/';
+  // true when shown inside the NutriLabel app (nutrilabel-v4 rewrites /workspace/ to this site)
+  const NL_HOSTED = location.pathname.startsWith('/workspace/');
   const V3_KEY = 'nlv3_cards_book';
   // v3's own sample assembly, prepared the way v3's fromSample() does (colors, empty steps, auto-arrange on open)
   async function v3Sample() {
@@ -530,4 +629,8 @@
   ME = person(db.meId) ? db.meId : 'u1';
   save();
   window.store = store;
+  if (LIVE) {
+    sync();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
+  }
 })();
