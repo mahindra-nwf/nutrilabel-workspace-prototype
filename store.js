@@ -164,11 +164,23 @@
   const PAL = ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c', '#5c940d', '#b08800', '#1971c2'];
   const colorOf = (id) => PAL[parseInt(String(id).replace(/-/g, '').slice(0, 6), 16) % PAL.length];
   const initials = (name) => String(name).replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+
+  // Live: who may use this app is set on the Members page; without access, show a short message instead of the app
+  function noAccess(app) {
+    const show = () => {
+      document.body.innerHTML = '<main style="max-width:520px;margin:15vh auto;padding:24px;font:15px/1.5 system-ui,sans-serif">' +
+        '<h1 style="font-size:22px;margin:0 0 8px">No access to ' + app + '</h1>' +
+        '<p style="margin:0 0 16px;color:#667085">Ask an administrator to give you access on the Members page.</p>' +
+        '<a href="/" style="font-weight:600">← Home</a></main>';
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show); else show();
+  }
   async function sync() {
     let s;
     try {
       const res = await fetch('/api/workspace', { cache: 'no-store' });
       if (res.status === 401) { location.href = '/login?next=' + encodeURIComponent(location.pathname); return; }
+      if (res.status === 403) { noAccess('the Recipe Library'); return; }
       if (!res.ok) return;
       s = await res.json();
     } catch (e) { return; } // offline: keep what we have
