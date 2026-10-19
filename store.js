@@ -129,6 +129,54 @@
     });
     return { people, items, activity, tagGroups, tags, meId: 'u1', seen: { u1: now - 6 * H } };
   }
+  function recipeItem(id, name, folderId) {
+    const now = Date.now();
+    return {
+      id, type: 'recipe', name, status: 'active',
+      updatedAt: now, updatedBy: ME, createdAt: now, createdBy: ME, versions: 1,
+      finalWeightG: 0, kcalPerPortion: 0, costPerPortion: 0, cards: 1,
+      folderId, starredBy: [], ownerId: ME, shares: [], orgView: false, tags: ['t_draft'],
+      thumbnailColor: ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c'][Math.floor(Math.random() * 5)],
+    };
+  }
+
+  /* ---------- Live: recipes live in the database (like files in a drive) ----------
+     The app's /api/workspace/recipes lists, creates, renames, archives and restores them as the signed-in person.
+     Folders, stars, tags and sharing stay in this browser for now, keyed by the recipe id.
+     shortcut: synchronous requests keep the screens' simple synchronous store calls; fine for a prototype. */
+  const API = '/api/workspace/recipes';
+  function server(method, path, body) {
+    const x = new XMLHttpRequest();
+    x.open(method, API + path, false);
+    x.setRequestHeader('Content-Type', 'application/json');
+    x.send(body ? JSON.stringify(body) : null);
+    let data = {};
+    try { data = JSON.parse(x.responseText || '{}'); } catch (e) { /* not JSON */ }
+    if (x.status === 401) { location.href = '/login?next=' + encodeURIComponent(location.pathname); throw new Error('Please sign in again.'); }
+    if (x.status < 200 || x.status >= 300) throw new Error(data.error || 'The server did not accept that. Try again.');
+    return data;
+  }
+  // bring the list in line with the database: new recipes appear, renamed ones update, deleted ones go
+  async function sync() {
+    let list;
+    try {
+      const res = await fetch(API, { cache: 'no-store' });
+      if (!res.ok) return;
+      list = (await res.json()).recipes;
+    } catch (e) { return; } // offline: keep what we have
+    const seen = new Set();
+    list.forEach((r) => {
+      seen.add(r.id);
+      let i = byId(r.id);
+      if (!i) { i = recipeItem(r.id, r.name, null); db.items.push(i); }
+      Object.assign(i, { name: r.name, status: r.status, versions: Math.max(1, r.revision - 1),
+        createdAt: Date.parse(r.createdAt), updatedAt: Date.parse(r.updatedAt), updatedByName: r.updatedBy });
+    });
+    db.items = db.items.filter((i) => i.type !== 'recipe' || seen.has(i.id));
+    save();
+    emit({ type: 'sync' });
+  }
+
   // tag groups every organization starts with (setup, not sample data)
   function tagSetup() {
     const tagGroups = [
@@ -222,6 +270,8 @@
   const store = {
     /** Live (clean, no demo controls) or Playground (demo data); see LIVE at the top */
     isLive: LIVE,
+    /** Live: reload recipes from the database (on open and whenever the tab comes back into view) */
+    sync,
     orgName: ORG,
 
     me() { return copy(person(ME)); },
@@ -271,14 +321,9 @@
     createRecipe({ name, folderId = null }) {
       mustCreate();
       if (folderId) mustEdit(byId(folderId));
-      const now = Date.now();
-      const r = {
-        id: uid('r'), type: 'recipe', name: name || 'Untitled recipe', status: 'active',
-        updatedAt: now, updatedBy: ME, createdAt: now, createdBy: ME, versions: 1,
-        finalWeightG: 0, kcalPerPortion: 0, costPerPortion: 0, cards: 1,
-        folderId, starredBy: [], ownerId: ME, shares: [], orgView: false, tags: ['t_draft'],
-        thumbnailColor: ['#0f766e', '#e8590c', '#2f6fed', '#7c5cff', '#c2255c'][Math.floor(Math.random() * 5)],
-      };
+      // Live: the recipe is created in the database first (it opens in the Recipe Builder), then shown here
+      const id = LIVE ? server('POST', '', { name: name || 'Untitled recipe' }).id : uid('r');
+      const r = recipeItem(id, name || 'Untitled recipe', folderId);
       db.items.push(r); log(r.id, 'created', null, { kind: 'recipe', folderId }); save();
       return decorate(r);
     },
@@ -294,6 +339,7 @@
 
     rename(id, name) {
       const i = byId(id); mustEdit(i);
+      if (LIVE && i.type === 'recipe') server('PATCH', '/' + id, { name });
       const old = i.name; i.name = name; touch(i); log(id, 'renamed', old + ' → ' + name); save();
       return decorate(i);
     },
@@ -316,12 +362,13 @@
       save(); emit({ type: 'star', itemId: id, on: !!on }); return decorate(i);
     },
 
-    archive(id) { const i = byId(id); mustEdit(i); i.status = 'archived'; touch(i); log(id, 'archived'); save(); return decorate(i); },
-    restore(id) { const i = byId(id); mustEdit(i); i.status = 'active'; touch(i); log(id, 'restored'); save(); return decorate(i); },
+    archive(id) { const i = byId(id); mustEdit(i); if (LIVE && i.type === 'recipe') server('PATCH', '/' + id, { status: 'archived' }); i.status = 'archived'; touch(i); log(id, 'archived'); save(); return decorate(i); },
+    restore(id) { const i = byId(id); mustEdit(i); if (LIVE && i.type === 'recipe') server('PATCH', '/' + id, { status: 'active' }); i.status = 'active'; touch(i); log(id, 'restored'); save(); return decorate(i); },
 
     duplicate(id) {
       mustCreate();
       const src = byId(id);
+      if (LIVE && src.type === 'recipe') throw new Error('In Live, make a copy inside the Recipe Builder for now.');
       const now = Date.now();
       const d = Object.assign(copy(src), {
         id: uid(src.type === 'folder' ? 'f' : 'r'), name: 'Copy of ' + src.name, ownerId: ME, shares: [], orgView: false,
@@ -370,7 +417,8 @@
     async openInBuilder(id) {
       const item = byId(id);
       if (!item || item.type !== 'recipe') return null;
-      if (NL_HOSTED) return null; // inside NutriLabel at /workspace/ there is no v3 next door → placeholder page
+      if (LIVE) return '/recipes/' + encodeURIComponent(id); // the real recipe in the Recipe Builder
+      if (NL_HOSTED) return null; // Playground inside the app: there is no v3 next door → placeholder page
       try {
         const ok = await fetch(V3_URL + 'index.html', { method: 'HEAD', cache: 'no-store' });
         if (!ok.ok) return null;
@@ -550,4 +598,8 @@
   ME = person(db.meId) ? db.meId : 'u1';
   save();
   window.store = store;
+  if (LIVE) {
+    sync();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
+  }
 })();

@@ -6,6 +6,8 @@
   // tell the use-case guide what just happened (it ticks steps and the feature checklist)
   const track = (e) => NL.demo && NL.demo.track(e);
   store.subscribe(track);
+  // Live: recipes arrived from the database (new ones from the Recipe Builder, renames, archives)
+  store.subscribe((e) => { if (e.type === 'sync') refresh(); });
 
   const state = {
     view: 'mine', folderId: null, query: '',

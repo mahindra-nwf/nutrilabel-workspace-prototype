@@ -29,7 +29,8 @@
     const f = target(state);
     const name = await NL.ask('Name your new recipe' + (f ? ' (goes in “' + f.name + '”)' : ''), 'Untitled recipe', 'Create');
     if (!name) return;
-    const r = store.createRecipe({ name, folderId: f ? f.id : null });
+    let r;
+    try { r = store.createRecipe({ name, folderId: f ? f.id : null }); } catch (e) { NL.toast(e.message); return; } // Live: the database can refuse
     if (!f) NL.app.go({ view: 'mine', folderId: null, query: '' });
     NL.app.refresh({ select: r.id });
     NL.toast('Created “' + r.name + '”', { label: 'Open', run: () => NL.app.open(r.id) });
