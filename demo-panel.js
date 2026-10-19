@@ -46,8 +46,8 @@
   /* ---------- render ---------- */
   function render() {
     const root = document.getElementById('demo');
-    root.hidden = !st.open;
-    if (!st.open) return;
+    root.hidden = !st.open || store.isLive; // the guide plays made-up people: Playground only
+    if (root.hidden) return;
     const sc = NL.SCENARIOS.find((s) => s.id === st.active);
     const doneCount = NL.FEATURES.filter((f) => st.done[f.id]).length;
 

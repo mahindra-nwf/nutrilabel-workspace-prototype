@@ -3,7 +3,11 @@
    Screens call these and get plain copies back; they never mutate store data directly.
    All data is made up. */
 (function () {
-  const KEY = 'nlws.v4'; // v4: tag groups + tags (recipe.tags holds tag ids)
+  // Live vs Playground: inside the NutriLabel app (/workspace/) the Home page toggle sets the nl_mode cookie.
+  // Playground (and this site on its own) = the demo with made-up people and recipes. Live = the same screens, clean:
+  // no sample data and no demo controls, kept under its own key so the two never mix.
+  const LIVE = location.pathname.startsWith('/workspace/') && !/(?:^|; )nl_mode=playground(?:;|$)/.test(document.cookie);
+  const KEY = LIVE ? 'nlws.live.v1' : 'nlws.v4'; // v4: tag groups + tags (recipe.tags holds tag ids)
   let ME = 'u1'; // who is "signed in"; the demo can switch person (store.switchUser)
   const ORG = 'Northwest Frozen';
   const H = 3600e3, D = 24 * H;
@@ -28,6 +32,12 @@
   /* ---------- seed ---------- */
   function seed() {
     const now = Date.now();
+    if (LIVE) {
+      // clean start: just you, no recipes, folders or activity; the tag groups are setup, not sample data
+      const { tagGroups, tags } = tagSetup();
+      return { people: [{ id: 'u1', name: 'You', email: '', role: 'admin', title: ORG, initials: 'Y', color: '#2f6fed' }],
+        items: [], activity: [], tagGroups, tags, meId: 'u1', seen: { u1: now } };
+    }
     const people = [
       { id: 'u1', name: 'Jordan Lee', email: 'jordan@example.com', role: 'admin', title: 'Head of R&D', initials: 'JL', color: '#2f6fed' },
       { id: 'u2', name: 'Ana Ruiz', email: 'ana@example.com', role: 'editor', title: 'Sous chef', initials: 'AR', color: '#e8590c' },
@@ -101,6 +111,26 @@
     });
     // Jordan last checked notifications 6 h ago, so a couple of teammates' edits show as new
     // ---- tags: admin-managed groups (Status, Diet, Channel) + free tags anyone can add
+    const { tagGroups, tags } = tagSetup();
+    const free = (name) => {
+      let t = tags.find((x) => !x.groupId && x.name.toLowerCase() === name.toLowerCase());
+      if (!t) { t = { id: 'tf_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, groupId: null, color: null }; tags.push(t); }
+      return t.id;
+    };
+    const STATUS = ['t_approved', 't_approved', 't_trial', 't_draft'];
+    items.filter((i) => i.type === 'recipe').forEach((r, i) => {
+      const ids = [r.status === 'archived' ? 't_disc' : STATUS[i % STATUS.length]];
+      r.tags.forEach((t) => ids.push(t === 'vegan' ? 't_vegan' : t === 'vegetarian' ? 't_vegetarian' : free(t)));
+      if (r.tags.includes('vegan')) ids.push('t_df');
+      if (r.folderId === 'f4' || r.tags.includes('frozen')) ids.push('t_retail');
+      if (r.folderId === 'f2') ids.push('t_foodservice');
+      if (i % 7 === 3) ids.push('t_airline');
+      r.tags = [...new Set(ids)];
+    });
+    return { people, items, activity, tagGroups, tags, meId: 'u1', seen: { u1: now - 6 * H } };
+  }
+  // tag groups every organization starts with (setup, not sample data)
+  function tagSetup() {
     const tagGroups = [
       { id: 'g_status', name: 'Status', choice: 'one' },
       { id: 'g_diet', name: 'Diet', choice: 'many' },
@@ -119,22 +149,7 @@
       { id: 't_foodservice', name: 'Food service', groupId: 'g_channel', color: '#0c8599' },
       { id: 't_airline', name: 'Airline', groupId: 'g_channel', color: '#c2255c' },
     ];
-    const free = (name) => {
-      let t = tags.find((x) => !x.groupId && x.name.toLowerCase() === name.toLowerCase());
-      if (!t) { t = { id: 'tf_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, groupId: null, color: null }; tags.push(t); }
-      return t.id;
-    };
-    const STATUS = ['t_approved', 't_approved', 't_trial', 't_draft'];
-    items.filter((i) => i.type === 'recipe').forEach((r, i) => {
-      const ids = [r.status === 'archived' ? 't_disc' : STATUS[i % STATUS.length]];
-      r.tags.forEach((t) => ids.push(t === 'vegan' ? 't_vegan' : t === 'vegetarian' ? 't_vegetarian' : free(t)));
-      if (r.tags.includes('vegan')) ids.push('t_df');
-      if (r.folderId === 'f4' || r.tags.includes('frozen')) ids.push('t_retail');
-      if (r.folderId === 'f2') ids.push('t_foodservice');
-      if (i % 7 === 3) ids.push('t_airline');
-      r.tags = [...new Set(ids)];
-    });
-    return { people, items, activity, tagGroups, tags, meId: 'u1', seen: { u1: now - 6 * H } };
+    return { tagGroups, tags };
   }
   function person2(people, id) { const p = people.find((x) => x.id === id); return p ? p.name : ''; }
 
@@ -205,6 +220,8 @@
 
   /* ---------- public API (future database calls) ---------- */
   const store = {
+    /** Live (clean, no demo controls) or Playground (demo data); see LIVE at the top */
+    isLive: LIVE,
     orgName: ORG,
 
     me() { return copy(person(ME)); },

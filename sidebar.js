@@ -42,11 +42,13 @@
       free.length ? el('div.ws-tags-group', {}, el('div.ws-tags-gname', {}, 'Your tags'), shownFree.map((t) => tagBtn(t, true)),
         free.length > 6 ? el('button.linkish.ws-tags-more', { onclick: () => { showAllFree = !showAllFree; render(state); } }, showAllFree ? 'Show fewer' : 'Show all ' + free.length) : null) : null);
 
-    const foot = el('div.ws-side-foot', {},
-      el('button.btn.ghost.sm', {
-        onclick: () => { if (confirm('Put all demo recipes, folders and sharing back the way they started?')) NL.app.resetDemo(); },
-      }, '↺ Reset demo data'),
-      el('div.faint', {}, 'Prototype · made-up data'));
+    const foot = store.isLive
+      ? el('div.ws-side-foot', {}, el('div.faint', {}, 'Live · saved in this browser for now'))
+      : el('div.ws-side-foot', {},
+        el('button.btn.ghost.sm', {
+          onclick: () => { if (confirm('Put all demo recipes, folders and sharing back the way they started?')) NL.app.resetDemo(); },
+        }, '↺ Reset demo data'),
+        el('div.faint', {}, 'Playground · made-up data'));
 
     root.replaceChildren(newBtn, nav, tagsNav, foot);
   }
