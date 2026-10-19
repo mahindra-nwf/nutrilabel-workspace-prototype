@@ -353,6 +353,7 @@
     async openInBuilder(id) {
       const item = byId(id);
       if (!item || item.type !== 'recipe') return null;
+      if (NL_HOSTED) return null; // inside NutriLabel at /workspace/ there is no v3 next door → placeholder page
       try {
         const ok = await fetch(V3_URL + 'index.html', { method: 'HEAD', cache: 'no-store' });
         if (!ok.ok) return null;
@@ -508,6 +509,8 @@
 
   /* ---------- v3 Recipe Builder ---------- */
   const V3_URL = '../nutrilabel-recipe-layout-v3/';
+  // true when shown inside the NutriLabel app (nutrilabel-v4 rewrites /workspace/ to this site)
+  const NL_HOSTED = location.pathname.startsWith('/workspace/');
   const V3_KEY = 'nlv3_cards_book';
   // v3's own sample assembly, prepared the way v3's fromSample() does (colors, empty steps, auto-arrange on open)
   async function v3Sample() {

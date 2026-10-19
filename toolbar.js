@@ -14,6 +14,7 @@
         onkeydown: (e) => { if (e.key === 'Escape') { e.target.value = ''; NL.app.go({ query: '' }); e.target.blur(); } },
       });
       bar.replaceChildren(
+        el('a.btn', { href: location.pathname.startsWith('/workspace/') ? '/' : '../nutrilabel-home-prototype/', title: 'All apps' }, '← Home'),
         el('a.brand', { href: '#/mine' }, 'NutriLabel ', el('small', {}, 'Workspace')),
         el('label.ws-search', {}, el('span.ic', {}, '⌕'), search),
         el('span.spacer'),
