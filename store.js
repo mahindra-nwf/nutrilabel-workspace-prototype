@@ -185,7 +185,8 @@
       s = await res.json();
     } catch (e) { return; } // offline: keep what we have
     ME = s.me.id; db.meId = ME;
-    db.people = s.people.map((p, k) => ({ id: p.id, name: p.name, email: p.email, role: p.role, title: p.role, initials: initials(p.name), color: PAL[k % PAL.length] }));
+    // your own entry uses your Recipe Library level (s.me.role), not your organization role, so View can't create
+    db.people = s.people.map((p, k) => ({ id: p.id, name: p.name, email: p.email, role: p.id === ME ? s.me.role : p.role, title: p.role, initials: initials(p.name), color: PAL[k % PAL.length] }));
     if (!person(ME)) db.people.push({ id: ME, name: 'You', email: '', role: s.me.role, title: s.me.role, initials: 'Y', color: PAL[0] });
     const stars = new Set(s.stars), starred = (id) => (stars.has(id) ? [ME] : []);
     const ms = (t) => Date.parse(t);
