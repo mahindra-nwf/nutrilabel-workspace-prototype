@@ -14,7 +14,7 @@
       { icon: item.starred ? '☆' : '★', label: item.starred ? 'Remove star' : 'Star', run: () => A.star(item.id, !item.starred) },
       { icon: 'ⓘ', label: 'Details', run: () => A.details(item.id) },
       'sep',
-      archived && store.canDeleteForGood() ? { icon: '🗑', label: 'Delete permanently', danger: true, run: () => A.deleteForGood([item.id]) } : null,
+      store.canDeleteForGood() ? { icon: '🗑', label: 'Delete permanently', danger: true, run: () => A.deleteForGood([item.id]) } : null,
       archived
         ? { icon: '↺', label: 'Restore', disabled: !canEdit, run: () => A.restore([item.id]) }
         : { icon: '⌫', label: 'Archive', danger: true, disabled: !canEdit, run: () => A.archive([item.id]) },

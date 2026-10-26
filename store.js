@@ -417,13 +417,23 @@
     },
 
     archive(id) { const i = byId(id); mustEdit(i); if (LIVE) { if (i.type === 'recipe') server('PATCH', '/' + id, { status: 'archived' }); else act({ op: 'updateFolder', id, status: 'archived' }); } i.status = 'archived'; touch(i); log(id, 'archived'); save(); return decorate(i); },
-    // Archived view, managers only: an archived recipe, or an archived folder with everything in it, gone for good.
-    // Live: the database decides (recipes with saved versions are kept, archived, at the top). Returns how many it kept.
+    // Managers only, from anywhere: a recipe, or a folder with everything in it, gone for good. Not archived yet? It is
+    // archived first (the database only deletes archived things). Live: the database decides; recipes with saved
+    // versions are kept, archived. Returns how many recipes it kept.
     deleteForGood(id) {
       const i = byId(id);
       if (!isAdmin()) throw new Error('Only owners and Recipe Library managers can delete for good.');
-      if (!i || i.status !== 'archived') throw new Error('Archive it before deleting it for good.');
-      const kept = LIVE ? (act({ op: 'deleteForGood', id }).kept || 0) : 0;
+      if (!i) throw new Error('It is no longer there.');
+      if (i.status !== 'archived') store.archive(id);
+      let kept = 0;
+      if (LIVE) {
+        try { kept = act({ op: 'deleteForGood', id }).kept || 0; }
+        catch (e) {
+          // a single recipe with saved versions: it stays, archived
+          if (i.type === 'recipe' && /saved versions/.test(e.message)) { sync(); return 1; }
+          throw e;
+        }
+      }
       const gone = new Set([id]);
       if (i.type === 'folder') {
         for (let grew = true; grew;) { grew = false; db.items.forEach((x) => { if (x.type === 'folder' && gone.has(x.parentId) && !gone.has(x.id)) { gone.add(x.id); grew = true; } }); }
