@@ -104,6 +104,8 @@
       !archivedView ? el('button.btn.sm', { disabled: !editable.length, onclick: () => moveTo(editable.map((i) => i.id)) }, '⇢ Move') : null,
       !archivedView && editable.some((i) => i.type === 'recipe') ? el('button.btn.sm', { onclick: () => NL.tags.open(editable.filter((i) => i.type === 'recipe').map((i) => i.id)) }, '🏷 Tags') : null,
       editable.length === 1 && n === 1 && !store.isLive ? el('button.btn.sm', { onclick: () => share(editable[0].id) }, '⇄ Share') : null,
+      archivedView && store.canDeleteForGood()
+        ? el('button.btn.sm.danger', { onclick: () => deleteForGood(sel.map((i) => i.id)) }, '🗑 Delete permanently') : null,
       archivedView
         ? el('button.btn.sm', { disabled: !editable.length, onclick: () => restore(editable.map((i) => i.id)) }, '↺ Restore')
         : el('button.btn.sm', { disabled: !editable.length, onclick: () => archive(editable.map((i) => i.id)) }, '⌫ Archive'));
@@ -168,6 +170,20 @@
     state.selected.clear(); refresh();
     NL.toast((done.length === 1 ? '“' + store.getItem(done[0]).name + '”' : done.length + ' items') + ' archived',
       { label: 'Undo', run: () => { done.forEach((id) => store.restore(id)); refresh(); track({ type: 'undo', of: 'archive' }); } });
+  }
+  function deleteForGood(ids) {
+    const items = ids.map((id) => store.getItem(id)).filter(Boolean);
+    if (!items.length) return;
+    const what = items.length === 1 ? '“' + items[0].name + '”' : items.length + ' items';
+    const folders = items.some((i) => i.type === 'folder');
+    if (!confirm('Delete ' + what + ' for good?' + (folders ? ' Everything inside the folder goes too: sub-folders and recipes.' : '') +
+      ' Recipes with saved versions are kept (versions are kept for good). This cannot be undone.')) return;
+    let kept = 0;
+    const done = items.filter((i) => guard(() => { kept += store.deleteForGood(i.id); }));
+    if (!done.length) return;
+    state.selected.clear(); refresh();
+    NL.toast((done.length === 1 ? '“' + done[0].name + '”' : done.length + ' items') + ' deleted for good' +
+      (kept ? ' · ' + kept + ' recipe' + (kept === 1 ? '' : 's') + ' with saved versions kept, archived' : ''));
   }
   function restore(ids) {
     const done = ids.filter((id) => guard(() => store.restore(id)));
@@ -239,7 +255,7 @@
     if (e.target === e.currentTarget || e.target.classList.contains('ws-grid') || e.target.classList.contains('ws-folders') || e.target.classList.contains('ws-sec')) { state.selected.clear(); refresh(); }
   });
 
-  NL.app = { state, track, setTagFilter, switchUser, reveal, go, refresh, select, selectAll, toggleSelect, moveTo, share, details, toggleDetails, setLayout, setSort, open, rename, duplicate, star, archive, restore, moveIds, dropOn, resetDemo, toggleTheme };
+  NL.app = { state, track, setTagFilter, switchUser, reveal, go, refresh, select, selectAll, toggleSelect, moveTo, share, details, toggleDetails, setLayout, setSort, open, rename, duplicate, star, archive, restore, deleteForGood, moveIds, dropOn, resetDemo, toggleTheme };
   readHash();
   refresh();
 })();

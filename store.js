@@ -373,7 +373,7 @@
       mustCreate();
       if (folderId) mustEdit(byId(folderId));
       // Live: the recipe is created in the database first (it opens in the Recipe Builder), then shown here
-      const id = LIVE ? server('POST', '', { name: name || 'Untitled recipe' }).id : uid('r');
+      const id = LIVE ? server('POST', '', { name: name || 'Untitled recipe', folderId }).id : uid('r'); // saved in that folder
       const r = recipeItem(id, name || 'Untitled recipe', folderId);
       db.items.push(r); log(r.id, 'created', null, { kind: 'recipe', folderId }); save();
       return decorate(r);
@@ -417,6 +417,24 @@
     },
 
     archive(id) { const i = byId(id); mustEdit(i); if (LIVE) { if (i.type === 'recipe') server('PATCH', '/' + id, { status: 'archived' }); else act({ op: 'updateFolder', id, status: 'archived' }); } i.status = 'archived'; touch(i); log(id, 'archived'); save(); return decorate(i); },
+    // Archived view, managers only: an archived recipe, or an archived folder with everything in it, gone for good.
+    // Live: the database decides (recipes with saved versions are kept, archived, at the top). Returns how many it kept.
+    deleteForGood(id) {
+      const i = byId(id);
+      if (!isAdmin()) throw new Error('Only owners and Recipe Library managers can delete for good.');
+      if (!i || i.status !== 'archived') throw new Error('Archive it before deleting it for good.');
+      const kept = LIVE ? (act({ op: 'deleteForGood', id }).kept || 0) : 0;
+      const gone = new Set([id]);
+      if (i.type === 'folder') {
+        for (let grew = true; grew;) { grew = false; db.items.forEach((x) => { if (x.type === 'folder' && gone.has(x.parentId) && !gone.has(x.id)) { gone.add(x.id); grew = true; } }); }
+        db.items.forEach((x) => { if (x.type === 'recipe' && gone.has(x.folderId)) gone.add(x.id); });
+      }
+      db.items = db.items.filter((x) => !gone.has(x.id));
+      save(); emit({ type: 'deleted', itemId: id });
+      if (kept) sync(); // the kept recipes now sit at the top
+      return kept;
+    },
+    canDeleteForGood: () => isAdmin(),
     restore(id) { const i = byId(id); mustEdit(i); if (LIVE) { if (i.type === 'recipe') server('PATCH', '/' + id, { status: 'active' }); else act({ op: 'updateFolder', id, status: 'active' }); } i.status = 'active'; touch(i); log(id, 'restored'); save(); return decorate(i); },
 
     duplicate(id) {
