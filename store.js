@@ -7,6 +7,26 @@
   // Playground (and this site on its own) = the demo with made-up people and recipes. Live = the same screens, clean:
   // no sample data and no demo controls, kept under its own key so the two never mix.
   const LIVE = location.pathname.startsWith('/workspace/') && !/(?:^|; )nl_mode=playground(?:;|$)/.test(document.cookie);
+
+  // Playground inside the company site: say so loudly, every time. Nothing here reaches the database or other people,
+  // and the choice sticks in this browser (a cookie set on Home), so it is easy to forget.
+  if (!LIVE && location.pathname.startsWith('/workspace/')) {
+    const banner = () => {
+      if (document.getElementById('playgroundBanner')) return;
+      const b = document.createElement('div');
+      b.id = 'playgroundBanner'; b.className = 'playground-banner'; b.setAttribute('role', 'status');
+      b.innerHTML = '<span><b>Playground:</b> sample data, saved only in this browser. Nobody else sees it, and nothing here is saved for your team.</span>';
+      const live = document.createElement('button');
+      live.type = 'button'; live.textContent = 'Switch to Live';
+      live.onclick = () => {
+        document.cookie = 'nl_mode=live; path=/; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '');
+        location.reload();
+      };
+      b.append(live);
+      document.body.prepend(b);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', banner); else banner();
+  }
   const KEY = LIVE ? 'nlws.live.v1' : 'nlws.v4'; // v4: tag groups + tags (recipe.tags holds tag ids)
   let ME = 'u1'; // who is "signed in"; the demo can switch person (store.switchUser)
   const ORG = 'Northwest Frozen';

@@ -43,7 +43,7 @@
         free.length > 6 ? el('button.linkish.ws-tags-more', { onclick: () => { showAllFree = !showAllFree; render(state); } }, showAllFree ? 'Show fewer' : 'Show all ' + free.length) : null) : null);
 
     const foot = store.isLive
-      ? el('div.ws-side-foot', {}, el('div.faint', {}, 'Live · saved in this browser for now'))
+      ? el('div.ws-side-foot', {}, el('div.faint', {}, 'Live · saved for your team'))
       : el('div.ws-side-foot', {},
         el('button.btn.ghost.sm', {
           onclick: () => { if (confirm('Put all demo recipes, folders and sharing back the way they started?')) NL.app.resetDemo(); },
