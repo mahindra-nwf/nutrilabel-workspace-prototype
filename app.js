@@ -146,9 +146,18 @@
     if (!it) return;
     if (it.type === 'folder') go({ folderId: id, query: '', view: it.ownerId === store.me().id ? 'mine' : 'shared' });
     else {
-      // the real v3 Recipe Builder when it's reachable (GitHub Pages), otherwise the placeholder page
+      // in its own tab, one per recipe: opening it again goes back to that tab instead of a duplicate. The tab opens on
+      // the click itself (pop-up blockers allow that); the address follows once it's known.
+      const tab = window.open('', 'nwf-recipe-' + id);
+      let reused = false;
+      try { reused = !!tab && tab.location.href !== 'about:blank'; } catch (e) { reused = true; } // e.g. on a sign-in page
+      if (reused) { tab.focus(); return; }
       NL.toast('Opening “' + it.name + '” in the Recipe Builder…');
-      store.openInBuilder(id).then((url) => { location.href = url || 'builder.html?id=' + encodeURIComponent(id); });
+      // the real Recipe Builder (Live), v3 when it's reachable (GitHub Pages), otherwise the placeholder page
+      store.openInBuilder(id).then((url) => {
+        const to = url || 'builder.html?id=' + encodeURIComponent(id);
+        if (tab) { tab.location.href = to; tab.focus(); } else location.href = to; // pop-ups blocked: open it here
+      });
     }
   }
   async function rename(id) {
