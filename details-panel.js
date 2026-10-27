@@ -41,9 +41,9 @@
          ['Final weight', it.finalWeightG ? it.finalWeightG + ' g' : '—'], ['Cards', it.cards], ['Versions', it.versions]];
 
     const access = el('div.ws-det-people', {},
-      personRow(it.owner, 'Owner', me),
+      it.owner ? personRow(it.owner, 'Owner', me) : null,
       shares.map((s) => personRow(s.person, s.role === 'edit' ? 'Can edit' : 'Can view', me)),
-      it.orgView ? el('div.ws-det-person', {}, el('span.ws-org-ic', {}, '⌂'), el('span.grow', {}, 'Everyone at ' + store.orgName), el('span.faint', {}, 'Can view')) : null);
+      it.orgView ? el('div.ws-det-person', {}, el('span.ws-org-ic', {}, '⌂'), el('span.grow', {}, 'Everyone at ' + store.orgName), el('span.faint', {}, it.orgView === 'edit' ? 'Can edit' : 'Can view')) : null);
     const inherited = store.path(it.id).slice(0, -1).filter((f) => store.listShares(f.id).length);
 
     root.replaceChildren(
@@ -64,7 +64,7 @@
         el('h4', {}, 'Who has access'),
         access,
         inherited.length ? el('p.faint.ws-det-small', {}, 'People with access to “' + inherited.map((f) => f.name).join('”, “') + '” can also see this.') : null,
-        store.isLive ? null : el('button.btn.sm', { onclick: () => NL.shareDialog.open(it.id) }, canEdit ? '⇄ Manage access' : 'See who has access'),
+        el('button.btn.sm', { onclick: () => NL.shareDialog.open(it.id) }, canEdit ? '⇄ Manage access' : 'See who has access'),
 
         el('h4', {}, 'Recent activity'),
         acts.length ? el('ul.ws-det-acts', {}, acts.map((a) => el('li', {},

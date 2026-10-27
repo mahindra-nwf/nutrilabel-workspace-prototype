@@ -103,7 +103,7 @@
       el('span.spacer'),
       !archivedView ? el('button.btn.sm', { disabled: !editable.length, onclick: () => moveTo(editable.map((i) => i.id)) }, '⇢ Move') : null,
       !archivedView && editable.some((i) => i.type === 'recipe') ? el('button.btn.sm', { onclick: () => NL.tags.open(editable.filter((i) => i.type === 'recipe').map((i) => i.id)) }, '🏷 Tags') : null,
-      editable.length === 1 && n === 1 && !store.isLive ? el('button.btn.sm', { onclick: () => share(editable[0].id) }, '⇄ Share') : null,
+      editable.length === 1 && n === 1 ? el('button.btn.sm', { onclick: () => share(editable[0].id) }, '⇄ Share') : null,
       store.canDeleteForGood()
         ? el('button.btn.sm.danger', { onclick: () => deleteForGood(sel.map((i) => i.id)) }, '🗑 Delete permanently') : null,
       archivedView

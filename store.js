@@ -161,8 +161,8 @@
   }
 
   /* ---------- Live: recipes live in the database (like files in a drive) ----------
-     The app's /api/workspace/recipes lists, creates, renames, archives and restores them as the signed-in person.
-     Folders, stars, tags and sharing stay in this browser for now, keyed by the recipe id.
+     The app's /api/workspace/recipes lists, creates, renames, archives and restores them as the signed-in person;
+     /api/workspace keeps folders, stars, tags and sharing (owner, everyone, people) in the database too.
      shortcut: synchronous requests keep the screens' simple synchronous store calls; fine for a prototype. */
   const API = '/api/workspace/recipes';
   function server(method, path, body, url = API + path) {
@@ -210,12 +210,16 @@
     if (!person(ME)) db.people.push({ id: ME, name: 'You', email: '', role: s.me.role, title: s.me.role, initials: 'Y', color: PAL[0] });
     const stars = new Set(s.stars), starred = (id) => (stars.has(id) ? [ME] : []);
     const ms = (t) => Date.parse(t);
+    // sharing from the database: everyone 'none' | 'view' | 'edit' -> orgView false | 'view' | 'edit'
+    const org = (e) => (e === 'none' ? false : e);
+    const sharesOf = (id) => s.shares.filter((x) => x.itemId === id).map((x) => ({ personId: x.personId, role: x.role }));
     db.items = [
-      ...s.folders.map((f) => ({ id: f.id, type: 'folder', name: f.name, parentId: f.parentId, ownerId: ME, shares: [], orgView: true,
+      ...s.folders.map((f) => ({ id: f.id, type: 'folder', name: f.name, parentId: f.parentId, ownerId: f.ownerId, shares: sharesOf(f.id), orgView: org(f.everyone),
         status: f.status, createdAt: ms(f.createdAt), updatedAt: ms(f.updatedAt), updatedBy: f.updatedBy, starredBy: starred(f.id) })),
       ...s.recipes.map((r) => Object.assign(recipeItem(r.id, r.name, r.folderId), {
         status: r.status, versions: Math.max(1, r.revision - 1), createdAt: ms(r.createdAt), updatedAt: ms(r.updatedAt),
-        createdBy: r.createdBy, updatedBy: r.updatedBy, tags: r.tagIds, starredBy: starred(r.id), orgView: true, thumbnailColor: colorOf(r.id),
+        createdBy: r.createdBy, updatedBy: r.updatedBy, tags: r.tagIds, starredBy: starred(r.id), thumbnailColor: colorOf(r.id),
+        ownerId: r.ownerId, shares: sharesOf(r.id), orgView: org(r.everyone),
       })),
     ];
     db.tagGroups = s.tagGroups;
@@ -257,16 +261,16 @@
   }
   // "owner" | "edit" | "view" | null — sharing a folder shares everything inside it
   function roleOf(item, pid = ME) {
-    // Live: everything belongs to the organization; editors and admins may change it, viewers only look
-    if (LIVE) return (person(pid) || {}).role === 'viewer' ? 'view' : 'owner';
+    // Live: the same rule as the database (item_role); a Recipe Library viewer only ever looks
     let best = null;
     for (const it of [item, ...ancestors(item)]) {
-      if (it.ownerId === pid) return 'owner';
+      if (it.ownerId === pid) { best = 'owner'; break; }
       const s = it.shares.find((x) => x.personId === pid);
       if (s && (s.role === 'edit' || !best)) best = s.role;
-      if (!best && it.orgView) best = 'view';
+      if (it.orgView === 'edit') best = 'edit';
+      else if (!best && it.orgView) best = 'view'; // true (Playground) or 'view'
     }
-    return best;
+    return best && LIVE && pid === ME && (person(pid) || {}).role === 'viewer' ? 'view' : best;
   }
   const isArchivedDeep = (item) => item.status === 'archived' || ancestors(item).some((a) => a.status === 'archived');
   function decorate(item) {
@@ -319,8 +323,8 @@
   const store = {
     /** Live (clean, no demo controls) or Playground (demo data); see LIVE at the top */
     isLive: LIVE,
-    /** name of the top level: in Live it is the whole organization's drive */
-    rootName: LIVE ? 'All recipes' : 'My recipes',
+    /** name of the top level: what you own (others' work is under Shared with me) */
+    rootName: 'My recipes',
     /** Live: reload recipes from the database (on open and whenever the tab comes back into view) */
     sync,
     orgName: ORG,
@@ -384,7 +388,7 @@
       if (parentId) mustEdit(byId(parentId));
       const now = Date.now();
       const fid = LIVE ? act({ op: 'createFolder', name: name || 'New folder', parentId }).id : uid('f');
-      const f = { id: fid, type: 'folder', name: name || 'New folder', parentId, ownerId: ME, shares: [], orgView: LIVE, status: 'active', updatedAt: now, createdAt: now, starredBy: [] };
+      const f = { id: fid, type: 'folder', name: name || 'New folder', parentId, ownerId: ME, shares: [], orgView: false, status: 'active', updatedAt: now, createdAt: now, starredBy: [] };
       db.items.push(f); log(f.id, 'created', null, { kind: 'folder', folderId: parentId }); save();
       return decorate(f);
     },
@@ -471,22 +475,27 @@
       return i.shares.map((s) => ({ person: copy(person(s.personId)), role: s.role }));
     },
     share(id, personId, role) {
-      notLive('Everyone at ' + ORG + ' already sees every recipe.');
       const i = byId(id); mustEdit(i);
       if (role === 'edit' && person(personId).role === 'viewer') throw new Error(person(personId).name + ' is a viewer, so can only be given “Can view”.');
+      if (LIVE) act({ op: 'share', itemId: id, personId, role });
       const s = i.shares.find((x) => x.personId === personId);
       const changed = !!s;
       if (s) s.role = role; else i.shares.push({ personId, role });
       log(id, 'shared', person(personId).name + ' (' + (role === 'edit' ? 'can edit' : 'can view') + ')', { target: personId, role, changed }); save();
     },
     unshare(id, personId) {
-      notLive('Everyone at ' + ORG + ' already sees every recipe.');
       const i = byId(id); mustEdit(i);
+      if (LIVE) act({ op: 'share', itemId: id, personId, role: null });
       i.shares = i.shares.filter((x) => x.personId !== personId);
       log(id, 'unshared', person(personId).name, { target: personId }); save();
     },
-    // "Everyone at Northwest Frozen can view" (helper; not in the original API list)
-    setOrgView(id, on) { notLive('Everyone at ' + ORG + ' already sees every recipe.'); const i = byId(id); mustEdit(i); i.orgView = !!on; log(id, 'shared', on ? 'everyone at ' + ORG : 'no longer org-wide', { org: !!on }); save(); },
+    // "Everyone at Northwest Frozen can view / can edit": on = false | 'view' | 'edit' (true means 'view')
+    setOrgView(id, on) {
+      const i = byId(id); mustEdit(i);
+      const role = on === true ? 'view' : on || false;
+      if (LIVE) act({ op: 'setEveryone', itemId: id, role: role || 'none' });
+      i.orgView = role; log(id, 'shared', role ? 'everyone at ' + ORG + (role === 'edit' ? ' (can edit)' : ' (can view)') : 'no longer org-wide', { org: !!role }); save();
+    },
 
     activity(id) {
       return db.activity.filter((a) => a.itemId === id).sort((a, b) => b.when - a.when)

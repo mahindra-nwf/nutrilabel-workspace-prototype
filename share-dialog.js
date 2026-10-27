@@ -1,4 +1,4 @@
-/* share-dialog.js — add people (Can view / Can edit), change or remove access, org-wide view switch. */
+/* share-dialog.js — add people (Can view / Can edit), change or remove access, general access (nobody else / everyone can view / can edit). */
 (function () {
   const { el } = NL;
 
@@ -34,18 +34,18 @@
 
       const owner = it.owner;
       const rows = [
-        el('div.ws-share-row', {}, NL.avatar(owner, 32), info(owner, me), el('span.faint.ws-share-role', {}, 'Owner')),
+        owner ? el('div.ws-share-row', {}, NL.avatar(owner, 32), info(owner, me), el('span.faint.ws-share-role', {}, 'Owner')) : null,
         ...shares.map((s) => el('div.ws-share-row', {}, NL.avatar(s.person, 32), info(s.person, me),
           canEdit
             ? el('select.ws-sel.ws-share-role', {
                 'aria-label': 'Access for ' + s.person.name,
-                onchange: (e) => { store.share(id, s.person.id, e.target.value); draw(); NL.app.refresh(); },
+                onchange: (e) => { try { store.share(id, s.person.id, e.target.value); } catch (err) { NL.toast(err.message); } draw(); NL.app.refresh(); },
               }, el('option', { value: 'view', selected: s.role === 'view' }, 'Can view'), el('option', { value: 'edit', selected: s.role === 'edit', disabled: s.person.role === 'viewer' }, s.person.role === 'viewer' ? 'Can edit (not for viewers)' : 'Can edit'))
             : el('span.faint.ws-share-role', {}, s.role === 'edit' ? 'Can edit' : 'Can view'),
           canEdit ? el('button.ws-more', {
             title: 'Remove ' + s.person.name, 'aria-label': 'Remove ' + s.person.name,
             onclick: () => {
-              store.unshare(id, s.person.id); draw(); NL.app.refresh();
+              try { store.unshare(id, s.person.id); } catch (err) { NL.toast(err.message); return; } draw(); NL.app.refresh();
               NL.toast(s.person.name + ' no longer has access', { label: 'Undo', run: () => { store.share(id, s.person.id, s.role); NL.app.refresh(); NL.app.track({ type: 'undo', of: 'unshare' }); } });
             },
           }, '✕') : null)),
@@ -54,16 +54,18 @@
       const inherited = store.path(id).slice(0, -1).filter((f) => store.listShares(f.id).length);
       const org = el('label.ws-share-org', {},
         el('span.ws-org-ic', {}, '⌂'),
-        el('span.grow', {}, el('b', {}, 'Everyone at ' + store.orgName + ' can view'),
-          el('div.faint', {}, it.orgView ? 'Anyone in the company can find and open this, but not change it.' : 'Only the people above can open this.')),
-        el('input.ws-switch', {
-          type: 'checkbox', role: 'switch', checked: !!it.orgView, disabled: !canEdit,
-          onchange: (e) => { store.setOrgView(id, e.target.checked); draw(); NL.app.refresh(); },
-        }));
+        el('span.grow', {}, el('b', {}, 'Everyone at ' + store.orgName),
+          el('div.faint', {}, it.orgView === 'edit' ? 'Anyone in the company can find, open and change this.'
+            : it.orgView ? 'Anyone in the company can find and open this, but not change it.' : 'Only the people above can open this.')),
+        el('select.ws-sel', {
+          'aria-label': 'What everyone at ' + store.orgName + ' can do', disabled: !canEdit,
+          onchange: (e) => { try { store.setOrgView(id, e.target.value === 'none' ? false : e.target.value); } catch (err) { NL.toast(err.message); } draw(); NL.app.refresh(); },
+        }, [['none', 'No access'], ['view', 'Can view'], ['edit', 'Can edit']].map(([v, t]) =>
+          el('option', { value: v, selected: (it.orgView === true ? 'view' : it.orgView || 'none') === v }, t))));
 
       NL.fill(body,
         canEdit ? el('div.ws-share-add', {}, who, role, add)
-          : el('p.ws-det-note', {}, 'You can view this but not share it. Ask ' + owner.name + ' to add people.'),
+          : el('p.ws-det-note', {}, 'You can view this but not share it. Ask ' + (owner ? owner.name : 'someone who can edit it') + ' to add people.'),
         el('h4', {}, 'People with access'),
         el('div.ws-share-list', {}, rows),
         inherited.length ? el('p.faint.ws-det-small', {}, 'People with access to the folder “' + inherited.map((f) => f.name).join('”, “') + '” can also see this.') : null,
