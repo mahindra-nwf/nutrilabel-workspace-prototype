@@ -10,9 +10,11 @@
       if (!it) { dlg && dlg.close(); return; } // you removed your own access
       const me = store.me();
       const canEdit = it.myRole === 'owner' || it.myRole === 'edit';
-      const shares = store.listShares(id);
-      const taken = new Set([it.ownerId, ...shares.map((s) => s.person.id)]);
-      const free = store.listPeople().filter((p) => !taken.has(p.id));
+      // people only matter when they get more than everyone has: none when everyone can edit, only Can edit when everyone can view
+      const everyoneEdits = it.orgView === 'edit', editOnly = !!it.orgView && !everyoneEdits;
+      const shares = store.listShares(id).filter((s) => !everyoneEdits && (!editOnly || s.role === 'edit'));
+      const taken = new Set([it.ownerId, ...store.listShares(id).map((s) => s.person.id)]);
+      const free = store.listPeople().filter((p) => !taken.has(p.id) && !(editOnly && p.role === 'viewer'));
 
       const who = el('select.ws-sel', { 'aria-label': 'Person' },
         el('option', { value: '' }, free.length ? 'Add a person…' : 'Everyone already has access'),
@@ -21,7 +23,11 @@
       const role = el('select.ws-sel', { 'aria-label': 'Access' }, el('option', { value: 'view' }, 'Can view'), editOpt);
       const add = el('button.btn.primary', {
         disabled: true,
-        onclick: () => { try { store.share(id, who.value, role.value); } catch (err) { NL.toast(err.message); return; } NL.toast(nameOf(who.value) + ' can now ' + (role.value === 'edit' ? 'edit' : 'view')); draw(); NL.app.refresh(); },
+        onclick: () => {
+          const r = editOnly ? 'edit' : role.value;
+          try { store.share(id, who.value, r); } catch (err) { NL.toast(err.message); return; }
+          NL.toast(nameOf(who.value) + ' can now ' + (r === 'edit' ? 'edit' : 'view')); draw(); NL.app.refresh();
+        },
       }, 'Add');
       who.addEventListener('change', () => {
         add.disabled = !who.value;
@@ -36,7 +42,7 @@
       const rows = [
         owner ? el('div.ws-share-row', {}, NL.avatar(owner, 32), info(owner, me), el('span.faint.ws-share-role', {}, 'Owner')) : null,
         ...shares.map((s) => el('div.ws-share-row', {}, NL.avatar(s.person, 32), info(s.person, me),
-          canEdit
+          canEdit && !editOnly
             ? el('select.ws-sel.ws-share-role', {
                 'aria-label': 'Access for ' + s.person.name,
                 onchange: (e) => { try { store.share(id, s.person.id, e.target.value); } catch (err) { NL.toast(err.message); } draw(); NL.app.refresh(); },
@@ -64,7 +70,11 @@
           el('option', { value: v, selected: (it.orgView === true ? 'view' : it.orgView || 'none') === v }, t))));
 
       NL.fill(body,
-        canEdit ? el('div.ws-share-add', {}, who, role, add)
+        !canEdit ? null
+          : everyoneEdits ? el('p.ws-det-note', {}, 'Everyone at ' + store.orgName + ' can already open and change this, so there is nobody to add.')
+          : editOnly ? el('div', {}, el('h4', {}, 'Also let these people edit'), el('div.ws-share-add', {}, who, add))
+          : el('div.ws-share-add', {}, who, role, add),
+        canEdit ? null
           : el('p.ws-det-note', {}, 'You can view this but not share it. Ask ' + (owner ? owner.name : 'someone who can edit it') + ' to add people.'),
         el('h4', {}, 'People with access'),
         el('div.ws-share-list', {}, rows),
