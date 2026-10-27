@@ -211,15 +211,18 @@
     const stars = new Set(s.stars), starred = (id) => (stars.has(id) ? [ME] : []);
     const ms = (t) => Date.parse(t);
     // sharing from the database: everyone 'none' | 'view' | 'edit' -> orgView false | 'view' | 'edit'
-    const org = (e) => (e === 'none' ? false : e);
-    const sharesOf = (id) => s.shares.filter((x) => x.itemId === id).map((x) => ({ personId: x.personId, role: x.role }));
+    // an app without sharing yet (no s.shares): everything belongs to everyone, as before
+    const old = !s.shares;
+    const org = (e) => (old ? 'edit' : e === 'none' ? false : e);
+    const sharesOf = (id) => (old ? [] : s.shares.filter((x) => x.itemId === id).map((x) => ({ personId: x.personId, role: x.role })));
+    const ownerOf = (x) => (old ? ME : x.ownerId);
     db.items = [
-      ...s.folders.map((f) => ({ id: f.id, type: 'folder', name: f.name, parentId: f.parentId, ownerId: f.ownerId, shares: sharesOf(f.id), orgView: org(f.everyone),
+      ...s.folders.map((f) => ({ id: f.id, type: 'folder', name: f.name, parentId: f.parentId, ownerId: ownerOf(f), shares: sharesOf(f.id), orgView: org(f.everyone),
         status: f.status, createdAt: ms(f.createdAt), updatedAt: ms(f.updatedAt), updatedBy: f.updatedBy, starredBy: starred(f.id) })),
       ...s.recipes.map((r) => Object.assign(recipeItem(r.id, r.name, r.folderId), {
         status: r.status, versions: Math.max(1, r.revision - 1), createdAt: ms(r.createdAt), updatedAt: ms(r.updatedAt),
         createdBy: r.createdBy, updatedBy: r.updatedBy, tags: r.tagIds, starredBy: starred(r.id), thumbnailColor: colorOf(r.id),
-        ownerId: r.ownerId, shares: sharesOf(r.id), orgView: org(r.everyone),
+        ownerId: ownerOf(r), shares: sharesOf(r.id), orgView: org(r.everyone),
       })),
     ];
     db.tagGroups = s.tagGroups;
