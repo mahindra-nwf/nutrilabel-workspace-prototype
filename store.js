@@ -354,7 +354,7 @@
         // items others own, shown at the top level unless their folder is already shared with me
         out = visible.filter((i) => i.ownerId !== ME && i.status === 'active' && !isArchivedDeep(i) && (() => {
           const pid = i.type === 'folder' ? i.parentId : i.folderId;
-          return !pid || !roleOf(byId(pid));
+          return !pid || !byId(pid) || !roleOf(byId(pid)); // a folder I cannot see is not loaded at all
         })());
       } else if (view === 'recent') {
         return filt(visible.filter((i) => i.type === 'recipe' && !isArchivedDeep(i))
